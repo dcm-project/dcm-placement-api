@@ -1,0 +1,26 @@
+services:
+  placement-db:
+    container_name: placement-db
+    image: ${PGSQL_IMAGE:-quay.io/sclorg/postgresql-15-c9s:latest}
+    environment:
+      - POSTGRESQL_DATABASE=placement
+      - POSTGRESQL_USER=admin
+      - POSTGRESQL_PASSWORD=adminpass
+      - POSTGRESQL_MASTER_USER=admin
+      - POSTGRESQL_MASTER_PASSWORD=adminpass
+      - PGPASSWORD=adminpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - placement-db:/var/lib/pgsql/data
+    networks:
+      - placement-network
+    restart: unless-stopped
+volumes:
+  placement-db:
+    driver_opts:
+      type: "tmpfs"  
+      device: "tmpfs" 
+      o: "nodev,noexec"
+networks:
+  placement-network:    
