@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -12,19 +13,83 @@ import (
 	strictnethttp "github.com/oapi-codegen/runtime/strictmiddleware/nethttp"
 )
 
+// Error defines model for Error.
+type Error struct {
+	// Code Error code
+	Code *int `json:"code,omitempty"`
+
+	// Error Error message
+	Error *string `json:"error,omitempty"`
+}
+
+// PlacementResponse defines model for PlacementResponse.
+type PlacementResponse struct {
+	// Host Target host
+	Host *string `json:"host,omitempty"`
+
+	// Id Placement ID
+	Id *string `json:"id,omitempty"`
+
+	// Message Status message
+	Message *string `json:"message,omitempty"`
+
+	// Status Placement status
+	Status *string `json:"status,omitempty"`
+}
+
+// VM defines model for VM.
+type VM struct {
+	// Cpu Number of CPU cores
+	Cpu int `json:"cpu"`
+
+	// Env Environment (dev, staging, prod)
+	Env string `json:"env"`
+
+	// Name Name of the virtual machine
+	Name string `json:"name"`
+
+	// Os Operating system
+	Os string `json:"os"`
+
+	// Ram RAM in GB
+	Ram int `json:"ram"`
+
+	// Region Target region for placement
+	Region string `json:"region"`
+
+	// Role Role of the VM
+	Role string `json:"role"`
+
+	// TenantId Tenant ID
+	TenantId *string `json:"tenantId,omitempty"`
+}
+
+// PlaceVMJSONRequestBody defines body for PlaceVM for application/json ContentType.
+type PlaceVMJSONRequestBody = VM
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-
+	// Health check
 	// (GET /health)
 	Health(w http.ResponseWriter, r *http.Request)
+	// Place a virtual machine
+	// (POST /place/vm)
+	PlaceVM(w http.ResponseWriter, r *http.Request)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
 
+// Health check
 // (GET /health)
 func (_ Unimplemented) Health(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Place a virtual machine
+// (POST /place/vm)
+func (_ Unimplemented) PlaceVM(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -43,6 +108,21 @@ func (siw *ServerInterfaceWrapper) Health(w http.ResponseWriter, r *http.Request
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.Health(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// PlaceVM operation middleware
+func (siw *ServerInterfaceWrapper) PlaceVM(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PlaceVM(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -168,6 +248,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/health", wrapper.Health)
 	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/place/vm", wrapper.PlaceVM)
+	})
 
 	return r
 }
@@ -187,11 +270,49 @@ func (response Health200Response) VisitHealthResponse(w http.ResponseWriter) err
 	return nil
 }
 
+type PlaceVMRequestObject struct {
+	Body *PlaceVMJSONRequestBody
+}
+
+type PlaceVMResponseObject interface {
+	VisitPlaceVMResponse(w http.ResponseWriter) error
+}
+
+type PlaceVM200JSONResponse PlacementResponse
+
+func (response PlaceVM200JSONResponse) VisitPlaceVMResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PlaceVM400JSONResponse Error
+
+func (response PlaceVM400JSONResponse) VisitPlaceVMResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PlaceVM500JSONResponse Error
+
+func (response PlaceVM500JSONResponse) VisitPlaceVMResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
-
+	// Health check
 	// (GET /health)
 	Health(ctx context.Context, request HealthRequestObject) (HealthResponseObject, error)
+	// Place a virtual machine
+	// (POST /place/vm)
+	PlaceVM(ctx context.Context, request PlaceVMRequestObject) (PlaceVMResponseObject, error)
 }
 
 type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
@@ -240,6 +361,37 @@ func (sh *strictHandler) Health(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(HealthResponseObject); ok {
 		if err := validResponse.VisitHealthResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PlaceVM operation middleware
+func (sh *strictHandler) PlaceVM(w http.ResponseWriter, r *http.Request) {
+	var request PlaceVMRequestObject
+
+	var body PlaceVMJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PlaceVM(ctx, request.(PlaceVMRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PlaceVM")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PlaceVMResponseObject); ok {
+		if err := validResponse.VisitPlaceVMResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

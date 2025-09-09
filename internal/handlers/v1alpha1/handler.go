@@ -9,11 +9,15 @@ import (
 
 type ServiceHandler struct {
 	srv *service.HealthService
+	ps  *service.PlacementService
 }
 
-func NewServiceHandler(sourceService *service.HealthService) *ServiceHandler {
+func NewServiceHandler(
+	sourceService *service.HealthService,
+	placementService *service.PlacementService) *ServiceHandler {
 	return &ServiceHandler{
 		srv: sourceService,
+		ps:  placementService,
 	}
 }
 
@@ -21,4 +25,13 @@ func NewServiceHandler(sourceService *service.HealthService) *ServiceHandler {
 func (s *ServiceHandler) Health(ctx context.Context, request server.HealthRequestObject) (server.HealthResponseObject, error) {
 	_ = s.srv.Health(ctx)
 	return server.Health200Response{}, nil
+}
+
+// (POST /place/vm)
+func (s *ServiceHandler) PlaceVM(ctx context.Context, request server.PlaceVMRequestObject) (server.PlaceVMResponseObject, error) {
+	err := s.ps.PlaceVM(ctx, &request)
+	if err != nil {
+		return server.PlaceVM400JSONResponse{}, nil
+	}
+	return server.PlaceVM200JSONResponse{}, nil
 }
