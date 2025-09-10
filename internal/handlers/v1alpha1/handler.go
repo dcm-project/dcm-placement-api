@@ -5,6 +5,7 @@ import (
 
 	"github.com/dcm-project/dcm-placement-api/internal/api/server"
 	"github.com/dcm-project/dcm-placement-api/internal/service"
+	"go.uber.org/zap"
 )
 
 type ServiceHandler struct {
@@ -29,9 +30,14 @@ func (s *ServiceHandler) Health(ctx context.Context, request server.HealthReques
 
 // (POST /place/vm)
 func (s *ServiceHandler) PlaceVM(ctx context.Context, request server.PlaceVMRequestObject) (server.PlaceVMResponseObject, error) {
-	err := s.ps.PlaceVM(ctx, &request)
+	logger := zap.S().Named("placement_handler")
+	logger.Info("Processing VM Placement Request")
+
+	err := s.ps.PlaceVM(ctx, request.Body)
 	if err != nil {
+		logger.Error("Failed to Place Virtual Machine")
 		return server.PlaceVM400JSONResponse{}, nil
 	}
+	logger.Info("Successfully Place Virtual Machine")
 	return server.PlaceVM200JSONResponse{}, nil
 }

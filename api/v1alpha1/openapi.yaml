@@ -89,7 +89,7 @@ components:
         role:
           type: string
           description: Role of the VM
-          example: "public-facing-web-server"
+          example: "public-facing"
         tenantId:
           type: string
           description: Tenant ID
