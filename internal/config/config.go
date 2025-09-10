@@ -36,4 +36,3 @@ func New() (*Config, error) {
 	}
 	return singleConfig, nil
 }
-

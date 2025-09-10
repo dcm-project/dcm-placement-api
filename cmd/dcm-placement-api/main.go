@@ -16,6 +16,11 @@ import (
 )
 
 func main() {
+	// Initialize logger
+	logger, _ := zap.NewDevelopment()
+	zap.ReplaceGlobals(logger)
+	defer logger.Sync()
+
 	err := runCmd.Execute()
 	if err != nil {
 		os.Exit(1)

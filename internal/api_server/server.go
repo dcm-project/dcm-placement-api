@@ -73,6 +73,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 	h := handlers.NewServiceHandler(
 		service.NewHealthService(),
+		service.NewPlacementService(),
 	)
 	server.HandlerFromMux(server.NewStrictHandler(h, nil), router)
 	srv := http.Server{Addr: s.cfg.Service.Address, Handler: router}
