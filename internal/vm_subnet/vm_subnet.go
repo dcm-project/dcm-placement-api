@@ -30,7 +30,7 @@ var subnets = []Subnet{
 		},
 		NetworkSpec: Spec{
 			Gateway:   "10.0.0.1",
-			IPAddress: "10.0.0.12",
+			IPAddress: "10.0.0.12", // ALLOWED by OPA policy
 			Netmask:   "255.255.255.0",
 			DnsName:   "prcr.app.prod.com",
 		},
@@ -38,13 +38,13 @@ var subnets = []Subnet{
 	{
 		VMConditions: Condition{
 			Region:      "us-east-2",
-			Environment: "STAGE",
-			Role:        "internal-facing",
-			TenantId:    "STCR-001",
+			Environment: "PROD",
+			Role:        "public-facing",
+			TenantId:    "PRCR-001",
 		},
 		NetworkSpec: Spec{
-			Gateway:   "10.0.0.1",
-			IPAddress: "10.0.0.12",
+			Gateway:   "10.0.1.1",
+			IPAddress: "10.0.1.4", // NOT ALLOWED by OPA policy
 			Netmask:   "255.255.255.0",
 			DnsName:   "stcr.app.stage.com",
 		},

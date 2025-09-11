@@ -56,9 +56,9 @@ func (s *ServiceHandler) PlaceVM(ctx context.Context, request server.PlaceVMRequ
 	err := s.ps.PlaceVM(ctx, request.Body)
 	if err != nil {
 		logger.Error("Failed to place Virtual Machine: ", "error", err)
-		return server.PlaceVM400JSONResponse{}, nil
+		return server.PlaceVM400JSONResponse{Error: err.Error()}, nil
 	}
 	logger.Info("Successfully Place Virtual Machine")
-	return server.PlaceVM200JSONResponse{}, nil
+	return server.PlaceVM200JSONResponse{Message: "VM successfully placed"}, nil
 
 }

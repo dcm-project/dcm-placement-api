@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"time"
@@ -11,6 +12,7 @@ import (
 	api "github.com/dcm-project/dcm-placement-api/api/v1alpha1"
 	"github.com/dcm-project/dcm-placement-api/internal/api/server"
 	"github.com/dcm-project/dcm-placement-api/internal/config"
+	"github.com/dcm-project/dcm-placement-api/internal/deploy"
 	handlers "github.com/dcm-project/dcm-placement-api/internal/handlers/v1alpha1"
 	"github.com/dcm-project/dcm-placement-api/internal/opa"
 	"github.com/dcm-project/dcm-placement-api/internal/service"
@@ -18,7 +20,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	oapimiddleware "github.com/oapi-codegen/nethttp-middleware"
+	"github.com/spf13/pflag"
 	"go.uber.org/zap"
+	"kubevirt.io/client-go/kubecli"
 )
 
 const (
@@ -69,9 +73,19 @@ func (s *Server) Run(ctx context.Context) error {
 		oapimiddleware.OapiRequestValidatorWithOptions(swagger, &oapiOpts),
 	)
 
+	// Init openshift connection:
+	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(kubecli.DefaultClientConfig(&pflag.FlagSet{}))
+	if err != nil {
+		log.Fatalf("cannot obtain KubeVirt client: %v\n", err)
+	}
+
 	h := handlers.NewServiceHandler(
 		s.store,
-		service.NewPlacementService(s.store, service.NewOpaService(opa.NewValidator(s.cfg.Service.OpaServer))),
+		service.NewPlacementService(
+			s.store,
+			opa.NewValidator(s.cfg.Service.OpaServer),
+			deploy.NewDeployService(virtClient),
+		),
 	)
 	server.HandlerFromMux(server.NewStrictHandler(h, nil), router)
 	srv := http.Server{Addr: s.cfg.Service.Address, Handler: router}

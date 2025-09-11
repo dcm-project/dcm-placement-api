@@ -6,19 +6,23 @@ import (
 	"reflect"
 
 	"github.com/dcm-project/dcm-placement-api/internal/api/server"
+	"github.com/dcm-project/dcm-placement-api/internal/deploy"
+	"github.com/dcm-project/dcm-placement-api/internal/opa"
 	"github.com/dcm-project/dcm-placement-api/internal/store"
 	"github.com/dcm-project/dcm-placement-api/internal/store/model"
 	"github.com/dcm-project/dcm-placement-api/internal/vm_subnet"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
 type PlacementService struct {
-	store store.Store
-	opa   *OpaService
+	store  store.Store
+	opa    *opa.Validator
+	deploy *deploy.DeployService
 }
 
-func NewPlacementService(store store.Store, opa *OpaService) *PlacementService {
-	return &PlacementService{store: store, opa: opa}
+func NewPlacementService(store store.Store, opa *opa.Validator, deploy *deploy.DeployService) *PlacementService {
+	return &PlacementService{store: store, opa: opa, deploy: deploy}
 }
 
 func (s *PlacementService) PlaceVM(ctx context.Context, request *server.PlaceVMJSONRequestBody) error {
@@ -27,6 +31,7 @@ func (s *PlacementService) PlaceVM(ctx context.Context, request *server.PlaceVMJ
 
 	// Store request record in db:
 	requestedVm, err := s.store.RequestedVm().Create(ctx, model.RequestedVm{
+		ID:       uuid.New(),
 		Name:     request.Name,
 		Env:      request.Env,
 		Ram:      request.Ram,
@@ -68,7 +73,10 @@ func (s *PlacementService) PlaceVM(ctx context.Context, request *server.PlaceVMJ
 	logger.Info("Processed network spec for vm place request", "VM", request, "Network-Spec", spec)
 
 	// OPA validation:
-	allow, err := s.opa.ValidateVmPlacement(ctx, request.Env, spec.IPAddress)
+	allow, err := s.opa.EvalPolicy(ctx, "subnet", map[string]string{
+		"env":     request.Env,
+		"network": spec.IPAddress,
+	})
 	if err != nil {
 		return err
 	}
@@ -77,13 +85,21 @@ func (s *PlacementService) PlaceVM(ctx context.Context, request *server.PlaceVMJ
 		return fmt.Errorf("Cannot create VM in requested subnet")
 	}
 
+	// Store declared vm in db:
 	_, err = s.store.DeclaredVm().Create(ctx, model.DeclaredVm{
+		ID:            uuid.New(),
 		RequestedVmID: requestedVm.ID,
 		IPAddress:     spec.IPAddress,
 		Gateway:       spec.Gateway,
 		Netmask:       spec.Netmask,
 		DnsName:       spec.DnsName,
 	})
+	if err != nil {
+		return err
+	}
+
+	// Deploy the vm
+	err = s.deploy.DeployVM(ctx, requestedVm)
 	if err != nil {
 		return err
 	}

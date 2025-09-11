@@ -132,6 +132,8 @@ components:
           example: "tenant-123"
     
     PlacementResponse:
+      required:
+        - message
       type: object
       properties:
         id:
@@ -152,6 +154,8 @@ components:
           example: "VM successfully placed"
     
     Error:
+      required:
+        - error
       type: object
       properties:
         error:
