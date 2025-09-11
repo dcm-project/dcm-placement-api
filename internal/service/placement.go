@@ -73,7 +73,7 @@ func (s *PlacementService) PlaceVM(ctx context.Context, request *server.PlaceVMJ
 	logger.Info("Processed network spec for vm place request", "VM", request, "Network-Spec", spec)
 
 	// OPA validation:
-	allow, err := s.opa.EvalPolicy(ctx, "subnet", map[string]string{
+	allow, restrictedSubnets, err := s.opa.EvalPolicy(ctx, "subnet", map[string]string{
 		"env":     request.Env,
 		"network": spec.IPAddress,
 	})
@@ -82,7 +82,11 @@ func (s *PlacementService) PlaceVM(ctx context.Context, request *server.PlaceVMJ
 	}
 
 	if !allow {
-		return fmt.Errorf("Cannot create VM in requested subnet")
+		return fmt.Errorf(
+			"Cannot create VM in requested subnet %v, restricted subnets: %v",
+			spec.IPAddress,
+			restrictedSubnets,
+		)
 	}
 
 	// Store declared vm in db:
