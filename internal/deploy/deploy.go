@@ -1,0 +1,165 @@
+package deploy
+
+import (
+	"context"
+	"fmt"
+
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubevirtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
+
+	"github.com/dcm-project/dcm-placement-api/internal/store/model"
+)
+
+type DeployService struct {
+	client kubecli.KubevirtClient
+}
+
+func NewDeployService(client kubecli.KubevirtClient) *DeployService {
+	return &DeployService{
+		client: client,
+	}
+}
+
+func (s *DeployService) DeployVM(ctx context.Context, vm *model.RequestedVm) error {
+	// Create the VirtualMachine object
+	memory := resource.MustParse(fmt.Sprintf("%dGi", vm.Ram))
+	virtualMachine := &kubevirtv1.VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vm.Name,
+			Namespace: vm.Region, // Using region as namespace
+		},
+		Spec: kubevirtv1.VirtualMachineSpec{
+			RunStrategy: &[]kubevirtv1.VirtualMachineRunStrategy{kubevirtv1.RunStrategyRerunOnFailure}[0],
+			Template: &kubevirtv1.VirtualMachineInstanceTemplateSpec{
+				Spec: kubevirtv1.VirtualMachineInstanceSpec{
+					AccessCredentials: []kubevirtv1.AccessCredential{
+						{
+							SSHPublicKey: &kubevirtv1.SSHPublicKeyAccessCredential{
+								Source: kubevirtv1.SSHPublicKeyAccessCredentialSource{
+									Secret: &kubevirtv1.AccessCredentialSecretSource{
+										SecretName: "myssh",
+									},
+								},
+								PropagationMethod: kubevirtv1.SSHPublicKeyAccessCredentialPropagationMethod{
+									NoCloud: &kubevirtv1.NoCloudSSHPublicKeyAccessCredentialPropagation{},
+								},
+							},
+						},
+					},
+					Architecture: "amd64",
+					Domain: kubevirtv1.DomainSpec{
+						CPU: &kubevirtv1.CPU{
+							Cores: uint32(vm.Cpu),
+						},
+						Memory: &kubevirtv1.Memory{
+							Guest: &memory,
+						},
+						Devices: kubevirtv1.Devices{
+							Disks: []kubevirtv1.Disk{
+								{
+									Name:      fmt.Sprintf("%s-disk", vm.Name),
+									BootOrder: &[]uint{1}[0],
+									DiskDevice: kubevirtv1.DiskDevice{
+										Disk: &kubevirtv1.DiskTarget{
+											Bus: kubevirtv1.DiskBusVirtio,
+										},
+									},
+								},
+								{
+									Name:      "cloudinitdisk",
+									BootOrder: &[]uint{2}[0],
+									DiskDevice: kubevirtv1.DiskDevice{
+										Disk: &kubevirtv1.DiskTarget{
+											Bus: kubevirtv1.DiskBusVirtio,
+										},
+									},
+								},
+							},
+							Interfaces: []kubevirtv1.Interface{
+								{
+									Name: "myvmnic",
+									InterfaceBindingMethod: kubevirtv1.InterfaceBindingMethod{
+										Bridge: &kubevirtv1.InterfaceBridge{},
+									},
+								},
+							},
+							Rng: &kubevirtv1.Rng{},
+						},
+						Features: &kubevirtv1.Features{
+							ACPI: kubevirtv1.FeatureState{},
+							SMM: &kubevirtv1.FeatureState{
+								Enabled: &[]bool{true}[0],
+							},
+						},
+						Machine: &kubevirtv1.Machine{
+							Type: "pc-q35-rhel9.6.0",
+						},
+					},
+					Networks: []kubevirtv1.Network{
+						{
+							Name: "myvmnic",
+							NetworkSource: kubevirtv1.NetworkSource{
+								Pod: &kubevirtv1.PodNetwork{},
+							},
+						},
+					},
+					TerminationGracePeriodSeconds: &[]int64{180}[0],
+					Volumes: []kubevirtv1.Volume{
+						{
+							Name: fmt.Sprintf("%s-disk", vm.Name),
+							VolumeSource: kubevirtv1.VolumeSource{
+								ContainerDisk: &kubevirtv1.ContainerDiskSource{
+									Image: s.getOSImage(vm.Os),
+								},
+							},
+						},
+						{
+							Name: "cloudinitdisk",
+							VolumeSource: kubevirtv1.VolumeSource{
+								CloudInitNoCloud: &kubevirtv1.CloudInitNoCloudSource{
+									UserData: s.generateCloudInitUserData(vm),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Create the VirtualMachine in the cluster
+	_, err := s.client.VirtualMachine(vm.Region).Create(ctx, virtualMachine, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create VirtualMachine: %w", err)
+	}
+
+	return nil
+}
+
+// getOSImage returns the container image for the specified OS
+func (s *DeployService) getOSImage(os string) string {
+	images := map[string]string{
+		"fedora": "quay.io/containerdisks/fedora:latest",
+		"ubuntu": "quay.io/containerdisks/ubuntu:latest",
+		"centos": "quay.io/containerdisks/centos:latest",
+		"rhel":   "quay.io/containerdisks/rhel:latest",
+	}
+
+	if image, exists := images[os]; exists {
+		return image
+	}
+	// Default to fedora if OS not found
+	return "quay.io/containerdisks/fedora:latest"
+}
+
+// generateCloudInitUserData generates cloud-init user data for the VM
+func (s *DeployService) generateCloudInitUserData(vm *model.RequestedVm) string {
+	return fmt.Sprintf(`#cloud-config
+user: %s
+password: auto-generated-pass
+chpasswd: { expire: False }
+hostname: %s
+`, vm.Role, vm.Name)
+}

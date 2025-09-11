@@ -27,6 +27,9 @@ VM Placement Service API for optimizing virtual machine placement across infrast
 
 5. **Create a VM:**
    ```bash
+   # Not allowed:
+   curl -X POST -H "Content-type: application/json" --data '{"name": "myvm", "env": "PROD", "region": "us-east-2", "ram": 1, "os": "RHEL", "cpu": 2, "role": "public-facing", "tenantid": "PRCR-001"}'  http://localhost:8080/place/vm
+   # Allowed
    curl -X POST -H "Content-type: application/json" --data '{"name": "myvm", "env": "PROD", "region": "us-east-1", "ram": 1, "os": "RHEL", "cpu": 2, "role": "public-facing", "tenantid": "PRCR-001"}'  http://localhost:8080/place/vm
    ```
 

@@ -64,7 +64,7 @@ type Error struct {
 	Code *int `json:"code,omitempty"`
 
 	// Error Error message
-	Error *string `json:"error,omitempty"`
+	Error string `json:"error"`
 }
 
 // PlacementResponse defines model for PlacementResponse.
@@ -76,7 +76,7 @@ type PlacementResponse struct {
 	Id *string `json:"id,omitempty"`
 
 	// Message Status message
-	Message *string `json:"message,omitempty"`
+	Message string `json:"message"`
 
 	// Status Placement status
 	Status *string `json:"status,omitempty"`
