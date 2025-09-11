@@ -37,13 +37,11 @@ func New(
 	cfg *config.Config,
 	store store.Store,
 	listener net.Listener,
-	opaValidator *opa.Validator,
 ) *Server {
 	return &Server{
-		cfg:          cfg,
-		store:        store,
-		listener:     listener,
-		opaValidator: opaValidator,
+		cfg:      cfg,
+		store:    store,
+		listener: listener,
 	}
 }
 
@@ -72,8 +70,8 @@ func (s *Server) Run(ctx context.Context) error {
 	)
 
 	h := handlers.NewServiceHandler(
-		service.NewHealthService(),
-		service.NewPlacementService(),
+		s.store,
+		service.NewPlacementService(s.store, service.NewOpaService(opa.NewValidator(s.cfg.Service.OpaServer))),
 	)
 	server.HandlerFromMux(server.NewStrictHandler(h, nil), router)
 	srv := http.Server{Addr: s.cfg.Service.Address, Handler: router}

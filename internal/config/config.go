@@ -21,10 +21,10 @@ type dbConfig struct {
 }
 
 type svcConfig struct {
-	Address           string `envconfig:"DCM_ADDRESS" default:":8080"`
-	BaseUrl           string `envconfig:"DCM_BASE_URL" default:"https://localhost:8080"`
-	LogLevel          string `envconfig:"DCM_LOG_LEVEL" default:"info"`
-	OpaPoliciesFolder string `envconfig:"DCM_OPA_POLICIES_FOLDER" default:"/app/policies"`
+	Address   string `envconfig:"DCM_ADDRESS" default:":8080"`
+	BaseUrl   string `envconfig:"DCM_BASE_URL" default:"https://localhost:8080"`
+	LogLevel  string `envconfig:"DCM_LOG_LEVEL" default:"info"`
+	OpaServer string `envconfig:"DCM_OPA_SERVER" default:"http://localhost:8181"`
 }
 
 func New() (*Config, error) {

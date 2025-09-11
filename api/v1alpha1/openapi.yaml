@@ -18,6 +18,42 @@ paths:
         '200':
           description: OK
 
+  /requestedvms:
+    get:
+      summary: Get all requested virtual machines
+      operationId: getRequestedVms
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestedVmList'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /declaredvms:
+    get:
+      summary: Get all declared virtual machines
+      operationId: getDeclaredVms
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeclaredVmList'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /place/vm:
     post:
       summary: Place a virtual machine
@@ -126,3 +162,39 @@ components:
           type: integer
           description: Error code
           example: 400
+
+    DeclaredVm:
+      allOf:
+        - $ref: '#/components/schemas/VM'
+        - type: object
+          properties:
+            id:
+              type: string
+              description: Declared VM ID
+              example: "declared-456"
+            ipAddress:
+              type: string
+              description: IP Address
+              example: "10.0.0.12"
+            gateway:
+              type: string
+              description: Gateway
+              example: "10.0.0.1"
+            netmask:
+              type: string
+              description: Netmask
+              example: "255.255.255.0"
+            dnsName:
+              type: string
+              description: DNS Name
+              example: "prcr.app.prod.com"
+
+    RequestedVmList:
+      type: array
+      items:
+        $ref: '#/components/schemas/VM'
+
+    DeclaredVmList:
+      type: array
+      items:
+        $ref: '#/components/schemas/DeclaredVm'

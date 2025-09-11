@@ -7,6 +7,10 @@ GOBIN := $(shell go env GOPATH)/bin
 build:
 	go build -o bin/dcm-placement-api ./cmd/dcm-placement-api
 
+# Run the OPA server
+opa:
+	podman run -v ${PWD}/policies:/policies -p 8181:8181 openpolicyagent/opa run --server --addr=0.0.0.0:8181 /policies
+
 # Run the application
 run:
 	go run ./cmd/dcm-placement-api
