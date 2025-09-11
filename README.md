@@ -15,12 +15,23 @@ VM Placement Service API for optimizing virtual machine placement across infrast
    make deploy-db
    ```
 
-2. **Run the application:**
+3. **Run the OPA server:**
+   ```bash
+   make opa
+   ```
+
+4. **Run the application:**
    ```bash
    make run
    ```
 
-3. **Test the health endpoint:**
+5. **Create a VM:**
    ```bash
-   curl -v http://localhost:8080/health
+   curl -X POST -H "Content-type: application/json" --data '{"name": "myvm", "env": "PROD", "region": "us-east-1", "ram": 1, "os": "RHEL", "cpu": 2, "role": "public-facing", "tenantid": "PRCR-001"}'  http://localhost:8080/place/vm
+   ```
+
+5. **Get a VMs:**
+   ```bash
+   curl http://localhost:8080/declaredvms
+   curl http://localhost:8080/requestedvms
    ```

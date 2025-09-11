@@ -9,7 +9,6 @@ import (
 
 	apiserver "github.com/dcm-project/dcm-placement-api/internal/api_server"
 	"github.com/dcm-project/dcm-placement-api/internal/config"
-	"github.com/dcm-project/dcm-placement-api/internal/opa"
 	"github.com/dcm-project/dcm-placement-api/internal/store"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -48,13 +47,6 @@ var runCmd = &cobra.Command{
 		store := store.NewStore(db)
 		defer store.Close()
 
-		// Initialize OPA validator for policy validation
-		zap.S().Info("initializing OPA validator...")
-		opaValidator, err := opa.NewValidatorFromDir(cfg.Service.OpaPoliciesFolder)
-		if err != nil {
-			zap.S().Warnf("Failed to initialize OPA validator: %v - validation will be disabled", err)
-		}
-
 		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGQUIT)
 
 		go func() {
@@ -64,7 +56,7 @@ var runCmd = &cobra.Command{
 				zap.S().Fatalw("creating listener", "error", err)
 			}
 
-			server := apiserver.New(cfg, store, listener, opaValidator)
+			server := apiserver.New(cfg, store, listener)
 			if err := server.Run(ctx); err != nil {
 				zap.S().Fatalw("Error running server", "error", err)
 			}

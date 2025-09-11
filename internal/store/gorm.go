@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/dcm-project/dcm-placement-api/internal/config"
+	"github.com/dcm-project/dcm-placement-api/internal/store/model"
 	"github.com/sirupsen/logrus"
 	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
@@ -71,6 +72,17 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 
 		zap.S().Named("gorm").Infof("PostgreSQL information: '%s'", minorVersion)
 	}
+
+	// FIXME: replace with proper migration system
+	if err := newDB.AutoMigrate(
+		&model.RequestedVm{},
+		&model.DeclaredVm{},
+	); err != nil {
+		zap.S().Named("gorm").Fatalf("failed to migrate database: %v", err)
+		return nil, err
+	}
+
+	zap.S().Named("gorm").Info("Database migration completed successfully")
 
 	return newDB, nil
 }

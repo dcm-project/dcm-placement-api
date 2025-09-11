@@ -89,6 +89,9 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// GetDeclaredVms request
+	GetDeclaredVms(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// Health request
 	Health(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -96,6 +99,21 @@ type ClientInterface interface {
 	PlaceVMWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PlaceVM(ctx context.Context, body PlaceVMJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetRequestedVms request
+	GetRequestedVms(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) GetDeclaredVms(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeclaredVmsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) Health(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -132,6 +150,45 @@ func (c *Client) PlaceVM(ctx context.Context, body PlaceVMJSONRequestBody, reqEd
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+func (c *Client) GetRequestedVms(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRequestedVmsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// NewGetDeclaredVmsRequest generates requests for GetDeclaredVms
+func NewGetDeclaredVmsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/declaredvms")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
 }
 
 // NewHealthRequest generates requests for Health
@@ -201,6 +258,33 @@ func NewPlaceVMRequestWithBody(server string, contentType string, body io.Reader
 	return req, nil
 }
 
+// NewGetRequestedVmsRequest generates requests for GetRequestedVms
+func NewGetRequestedVmsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/requestedvms")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -244,6 +328,9 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// GetDeclaredVmsWithResponse request
+	GetDeclaredVmsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeclaredVmsResponse, error)
+
 	// HealthWithResponse request
 	HealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthResponse, error)
 
@@ -251,6 +338,32 @@ type ClientWithResponsesInterface interface {
 	PlaceVMWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PlaceVMResponse, error)
 
 	PlaceVMWithResponse(ctx context.Context, body PlaceVMJSONRequestBody, reqEditors ...RequestEditorFn) (*PlaceVMResponse, error)
+
+	// GetRequestedVmsWithResponse request
+	GetRequestedVmsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetRequestedVmsResponse, error)
+}
+
+type GetDeclaredVmsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DeclaredVmList
+	JSON400      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDeclaredVmsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeclaredVmsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type HealthResponse struct {
@@ -298,6 +411,38 @@ func (r PlaceVMResponse) StatusCode() int {
 	return 0
 }
 
+type GetRequestedVmsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RequestedVmList
+	JSON400      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetRequestedVmsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetRequestedVmsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// GetDeclaredVmsWithResponse request returning *GetDeclaredVmsResponse
+func (c *ClientWithResponses) GetDeclaredVmsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeclaredVmsResponse, error) {
+	rsp, err := c.GetDeclaredVms(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeclaredVmsResponse(rsp)
+}
+
 // HealthWithResponse request returning *HealthResponse
 func (c *ClientWithResponses) HealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthResponse, error) {
 	rsp, err := c.Health(ctx, reqEditors...)
@@ -322,6 +467,48 @@ func (c *ClientWithResponses) PlaceVMWithResponse(ctx context.Context, body Plac
 		return nil, err
 	}
 	return ParsePlaceVMResponse(rsp)
+}
+
+// GetRequestedVmsWithResponse request returning *GetRequestedVmsResponse
+func (c *ClientWithResponses) GetRequestedVmsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetRequestedVmsResponse, error) {
+	rsp, err := c.GetRequestedVms(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetRequestedVmsResponse(rsp)
+}
+
+// ParseGetDeclaredVmsResponse parses an HTTP response from a GetDeclaredVmsWithResponse call
+func ParseGetDeclaredVmsResponse(rsp *http.Response) (*GetDeclaredVmsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeclaredVmsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeclaredVmList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseHealthResponse parses an HTTP response from a HealthWithResponse call
@@ -374,6 +561,39 @@ func ParsePlaceVMResponse(rsp *http.Response) (*PlaceVMResponse, error) {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetRequestedVmsResponse parses an HTTP response from a GetRequestedVmsWithResponse call
+func ParseGetRequestedVmsResponse(rsp *http.Response) (*GetRequestedVmsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetRequestedVmsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RequestedVmList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	}
 
