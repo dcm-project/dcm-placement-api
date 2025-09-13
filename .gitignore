@@ -5,6 +5,9 @@ dcm-placement-api.iml
 
 # Build output
 /bin/
+vendor
 
 # Env files
 .env
+
+

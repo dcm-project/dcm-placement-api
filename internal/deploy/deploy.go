@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubevirtv1 "kubevirt.io/api/core/v1"
@@ -23,6 +25,13 @@ func NewDeployService(client kubecli.KubevirtClient) *DeployService {
 }
 
 func (s *DeployService) DeployVM(ctx context.Context, vm *model.RequestedVm) error {
+	logger := zap.S().Named("deploy_vm")
+	logger.Info("Starting deployment for Virtual Machine")
+	// Create Namespace for the Virtual Machine
+	if err := s.getNamespace(ctx, vm.Region); err != nil {
+		return err
+	}
+
 	// Create the VirtualMachine object
 	memory := resource.MustParse(fmt.Sprintf("%dGi", vm.Ram))
 	virtualMachine := &kubevirtv1.VirtualMachine{
@@ -135,6 +144,28 @@ func (s *DeployService) DeployVM(ctx context.Context, vm *model.RequestedVm) err
 		return fmt.Errorf("failed to create VirtualMachine: %w", err)
 	}
 
+	return nil
+}
+
+// getNamespace checks and creates namespace
+func (s *DeployService) getNamespace(ctx context.Context, namespace string) error {
+	logger := zap.S().Named("get_namespace")
+	// Check Namespace exists
+	_, err := s.client.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
+	if err != nil {
+		// Create Namespace
+		ns := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespace,
+			},
+		}
+		_, err = s.client.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+		if err != nil {
+			logger.Error("Error occurred when creating namespace", err)
+			return fmt.Errorf("failed to create namespace %s: %w", namespace, err)
+		}
+	}
+	logger.Info("Successfully created namespace", "Namespace", namespace)
 	return nil
 }
 
