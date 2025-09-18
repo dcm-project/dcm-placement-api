@@ -192,6 +192,10 @@ components:
               type: string
               description: DNS Name
               example: "prcr.app.prod.com"
+            createdAt:
+              type: string
+              description: CreatedAt
+              example: "2025-09-18T15:44:00"
 
     RequestedVmList:
       type: array

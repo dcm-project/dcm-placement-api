@@ -18,6 +18,9 @@ type DeclaredVm struct {
 	// Cpu Number of CPU cores
 	Cpu int `json:"cpu"`
 
+	// CreatedAt CreatedAt
+	CreatedAt *string `json:"createdAt,omitempty"`
+
 	// DnsName DNS Name
 	DnsName *string `json:"dnsName,omitempty"`
 

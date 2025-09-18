@@ -32,12 +32,23 @@ func RequestedVmListToAPI(dbVms model.RequestedVmList) server.RequestedVmList {
 // DeclaredVmToAPI converts database DeclaredVm to API DeclaredVm
 func DeclaredVmToAPI(dbVm model.DeclaredVm) server.DeclaredVm {
 	idStr := dbVm.ID.String()
+	createdAt := dbVm.CreatedAt.Format("2006-01-02T15:04:05")
 	result := server.DeclaredVm{
 		Id:        &idStr,
 		IpAddress: &dbVm.IPAddress,
 		Gateway:   &dbVm.Gateway,
 		Netmask:   &dbVm.Netmask,
 		DnsName:   &dbVm.DnsName,
+		CreatedAt: &createdAt,
+		// Include preloaded RequestedVm data
+		Name:     dbVm.RequestedVm.Name,
+		Env:      dbVm.RequestedVm.Env,
+		Ram:      dbVm.RequestedVm.Ram,
+		Os:       dbVm.RequestedVm.Os,
+		Cpu:      dbVm.RequestedVm.Cpu,
+		Region:   dbVm.RequestedVm.Region,
+		Role:     dbVm.RequestedVm.Role,
+		TenantId: &dbVm.RequestedVm.TenantId,
 	}
 
 	return result
