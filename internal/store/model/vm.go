@@ -1,6 +1,8 @@
 package model
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -22,12 +24,14 @@ type RequestedVmList []RequestedVm
 
 type DeclaredVm struct {
 	gorm.Model
-	ID            uuid.UUID `gorm:"primaryKey;"`
-	RequestedVmID uuid.UUID `gorm:"type:uuid;not null"` // Foreign key to RequestedVm
-	IPAddress     string    `gorm:"not null"`
-	Gateway       string    `gorm:"not null"`
-	Netmask       string    `gorm:"not null"`
-	DnsName       string    `gorm:"not null"`
+	ID            uuid.UUID   `gorm:"primaryKey;"`
+	RequestedVmID uuid.UUID   `gorm:"type:uuid;not null"`       // Foreign key to RequestedVm
+	RequestedVm   RequestedVm `gorm:"foreignKey:RequestedVmID"` // Relationship to RequestedVm
+	IPAddress     string      `gorm:"not null"`
+	Gateway       string      `gorm:"not null"`
+	Netmask       string      `gorm:"not null"`
+	DnsName       string      `gorm:"not null"`
+	CreatedAt     time.Time   `gorm:"not null"`
 }
 
 type DeclaredVmList []DeclaredVm

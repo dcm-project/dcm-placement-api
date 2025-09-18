@@ -26,7 +26,8 @@ func NewDeclaredVm(db *gorm.DB) DeclaredVm {
 func (s *DeclaredVmStore) List(ctx context.Context) (model.DeclaredVmList, error) {
 	var vms model.DeclaredVmList
 	tx := s.db.Model(&vms)
-	result := tx.Find(&vms)
+	// Preload the related RequestedVm data
+	result := tx.Preload("RequestedVm").Find(&vms)
 	if result.Error != nil {
 		return nil, result.Error
 	}

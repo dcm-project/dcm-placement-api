@@ -39,7 +39,6 @@ func (s *ServiceHandler) GetRequestedVms(ctx context.Context, request server.Get
 
 // (GET /declaredvms)
 func (s *ServiceHandler) GetDeclaredVms(ctx context.Context, request server.GetDeclaredVmsRequestObject) (server.GetDeclaredVmsResponseObject, error) {
-	// FIXME: preload with requested vms data
 	vms, err := s.store.DeclaredVm().List(ctx)
 	if err != nil {
 		return server.GetDeclaredVms400JSONResponse{}, err
