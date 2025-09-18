@@ -7,6 +7,7 @@ VM Placement Service API for optimizing virtual machine placement across infrast
 ### Prerequisites
 - Go 1.23+
 - Podman and podman-compose
+- Cluster with KubeVirt - Find more information [here](https://kubevirt.io/quickstart_kind/)
 
 ### Steps
 
