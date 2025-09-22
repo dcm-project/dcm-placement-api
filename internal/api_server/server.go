@@ -2,6 +2,7 @@ package apiserver
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -21,6 +22,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	oapimiddleware "github.com/oapi-codegen/nethttp-middleware"
 	"github.com/spf13/pflag"
+	httpSwagger "github.com/swaggo/http-swagger"
 	"go.uber.org/zap"
 	"kubevirt.io/client-go/kubecli"
 )
@@ -70,8 +72,24 @@ func (s *Server) Run(ctx context.Context) error {
 	router.Use(
 		middleware.RequestID,
 		middleware.Recoverer,
-		oapimiddleware.OapiRequestValidatorWithOptions(swagger, &oapiOpts),
 	)
+
+	// Add Swagger UI endpoints BEFORE OpenAPI validation middleware
+	router.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger.json"),
+	))
+	router.Get("/swagger.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		swaggerJSON, err := json.Marshal(swagger)
+		if err != nil {
+			http.Error(w, "Failed to marshal swagger spec", http.StatusInternalServerError)
+			return
+		}
+		_, err = w.Write(swaggerJSON)
+		if err != nil {
+			return
+		}
+	})
 
 	// Init openshift connection:
 	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(kubecli.DefaultClientConfig(&pflag.FlagSet{}))
@@ -87,7 +105,13 @@ func (s *Server) Run(ctx context.Context) error {
 			deploy.NewDeployService(virtClient),
 		),
 	)
-	server.HandlerFromMux(server.NewStrictHandler(h, nil), router)
+
+	// Apply OpenAPI validation middleware to API routes only
+	router.Group(func(r chi.Router) {
+		r.Use(oapimiddleware.OapiRequestValidatorWithOptions(swagger, &oapiOpts))
+		server.HandlerFromMux(server.NewStrictHandler(h, nil), router)
+	})
+
 	srv := http.Server{Addr: s.cfg.Service.Address, Handler: router}
 
 	go func() {
