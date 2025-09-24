@@ -75,6 +75,7 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 
 	// FIXME: replace with proper migration system
 	if err := newDB.AutoMigrate(
+		&model.Application{},
 		&model.RequestedVm{},
 		&model.DeclaredVm{},
 	); err != nil {

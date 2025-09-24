@@ -47,6 +47,29 @@ func (s *ServiceHandler) GetDeclaredVms(ctx context.Context, request server.GetD
 	return server.GetDeclaredVms200JSONResponse(mappers.DeclaredVmListToAPI(vms)), nil
 }
 
+// (GET /applications)
+func (s *ServiceHandler) GetApplications(ctx context.Context, request server.GetApplicationsRequestObject) (server.GetApplicationsResponseObject, error) {
+	applications, err := s.store.Application().List(ctx)
+	if err != nil {
+		return server.GetApplications400JSONResponse{}, err
+	}
+	return server.GetApplications200JSONResponse(mappers.ApplicationListToAPI(applications)), nil
+}
+
+// (POST /applications)
+func (s *ServiceHandler) CreateApplication(ctx context.Context, request server.CreateApplicationRequestObject) (server.CreateApplicationResponseObject, error) {
+	logger := zap.S().Named("placement_service")
+	logger.Info("Creating Application", "Application", request)
+
+	err := s.ps.CreateApplication(ctx, request.Body)
+	if err != nil {
+		logger.Error("Failed to create Application: ", "error", err)
+		return server.CreateApplication400JSONResponse{}, err
+	}
+	logger.Info("Application created", "Application", request)
+	return server.CreateApplication201JSONResponse{}, nil
+}
+
 // (POST /place/vm)
 func (s *ServiceHandler) PlaceVM(ctx context.Context, request server.PlaceVMRequestObject) (server.PlaceVMResponseObject, error) {
 	logger := zap.S().Named("placement_handler")

@@ -7,6 +7,16 @@ import (
 	"gorm.io/gorm"
 )
 
+type Application struct {
+	gorm.Model
+	ID      uuid.UUID `gorm:"primaryKey;"`
+	Name    string    `gorm:"name;not null"`
+	Service string    `gorm:"service;not null"`
+	Zones   *[]string `gorm:"type:text[]"`
+}
+
+type ApplicationList []Application
+
 type RequestedVm struct {
 	gorm.Model
 	ID       uuid.UUID `gorm:"primaryKey;"`

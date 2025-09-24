@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/dcm-project/dcm-placement-api/internal/api/server"
+	"github.com/dcm-project/dcm-placement-api/internal/catalog"
 	"github.com/dcm-project/dcm-placement-api/internal/deploy"
 	"github.com/dcm-project/dcm-placement-api/internal/opa"
 	"github.com/dcm-project/dcm-placement-api/internal/store"
@@ -25,6 +26,50 @@ func NewPlacementService(store store.Store, opa *opa.Validator, deploy *deploy.D
 	return &PlacementService{store: store, opa: opa, deploy: deploy}
 }
 
+func (s *PlacementService) CreateApplication(ctx context.Context, request *server.CreateApplicationJSONRequestBody) error {
+	logger := zap.S().Named("placement_service")
+
+	_, err := s.store.Application().Create(ctx, model.Application{
+		ID:      uuid.New(),
+		Name:    request.Name,
+		Service: string(request.Service),
+		Zones:   request.Zones,
+	})
+	if err != nil {
+		return err
+	}
+
+	// OPA validation:
+	result, err := s.opa.EvalPolicy(ctx, "tier1", map[string]string{
+		"name": request.Name,
+		"tier": "1",
+	})
+	if err != nil {
+		return err
+	}
+
+	logger.Info("OPA validation result", "Result", result)
+
+	if !s.opa.IsInputValid(result) {
+		logger.Warn("Invalid input", "Input", request)
+	}
+
+	if !s.opa.IsOutputValid(result) {
+		return fmt.Errorf("invalid output")
+	}
+
+	zones := s.opa.GetOutputZones(result)
+	for _, zone := range zones {
+		logger.Info("Created Application in Zone", "Zone", zone)
+		err = s.deploy.DeployVM(ctx, catalog.GetCatalogVm(request.Name, request.Service), zone)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (s *PlacementService) PlaceVM(ctx context.Context, request *server.PlaceVMJSONRequestBody) error {
 	logger := zap.S().Named("placement_service")
 	logger.Info("Processing Placement request", "VM-NAME", request.Name)
@@ -37,7 +82,6 @@ func (s *PlacementService) PlaceVM(ctx context.Context, request *server.PlaceVMJ
 		Ram:      request.Ram,
 		Os:       request.Os,
 		Cpu:      request.Cpu,
-		Region:   request.Region,
 		Role:     request.Role,
 		TenantId: *request.TenantId,
 	})
@@ -53,7 +97,6 @@ func (s *PlacementService) PlaceVM(ctx context.Context, request *server.PlaceVMJ
 	for _, s := range subnets {
 		conditions := s.VMConditions
 		if (conditions.Role == request.Role) &&
-			(conditions.Region == request.Region) &&
 			(conditions.Environment == request.Env) &&
 			(conditions.TenantId == *request.TenantId) {
 
@@ -72,23 +115,6 @@ func (s *PlacementService) PlaceVM(ctx context.Context, request *server.PlaceVMJ
 	}
 	logger.Info("Processed network spec for vm place request", "VM", request, "Network-Spec", spec)
 
-	// OPA validation:
-	allow, restrictedSubnets, err := s.opa.EvalPolicy(ctx, "subnet", map[string]string{
-		"env":     request.Env,
-		"network": spec.IPAddress,
-	})
-	if err != nil {
-		return err
-	}
-
-	if !allow {
-		return fmt.Errorf(
-			"Cannot create VM in requested subnet %v, restricted subnets: %v",
-			spec.IPAddress,
-			restrictedSubnets,
-		)
-	}
-
 	// Store declared vm in db:
 	_, err = s.store.DeclaredVm().Create(ctx, model.DeclaredVm{
 		ID:            uuid.New(),
@@ -103,7 +129,7 @@ func (s *PlacementService) PlaceVM(ctx context.Context, request *server.PlaceVMJ
 	}
 
 	// Deploy the vm
-	err = s.deploy.DeployVM(ctx, requestedVm)
+	err = s.deploy.DeployVM(ctx, requestedVm, *request.Region)
 	if err != nil {
 		return err
 	}
