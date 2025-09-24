@@ -89,6 +89,14 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// GetApplications request
+	GetApplications(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateApplicationWithBody request with any body
+	CreateApplicationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateApplication(ctx context.Context, body CreateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetDeclaredVms request
 	GetDeclaredVms(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -102,6 +110,42 @@ type ClientInterface interface {
 
 	// GetRequestedVms request
 	GetRequestedVms(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) GetApplications(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApplicationsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateApplicationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateApplicationRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateApplication(ctx context.Context, body CreateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateApplicationRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) GetDeclaredVms(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -162,6 +206,73 @@ func (c *Client) GetRequestedVms(ctx context.Context, reqEditors ...RequestEdito
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewGetApplicationsRequest generates requests for GetApplications
+func NewGetApplicationsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/applications")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateApplicationRequest calls the generic CreateApplication builder with application/json body
+func NewCreateApplicationRequest(server string, body CreateApplicationJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateApplicationRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateApplicationRequestWithBody generates requests for CreateApplication with any type of body
+func NewCreateApplicationRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/applications")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
 }
 
 // NewGetDeclaredVmsRequest generates requests for GetDeclaredVms
@@ -328,6 +439,14 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// GetApplicationsWithResponse request
+	GetApplicationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApplicationsResponse, error)
+
+	// CreateApplicationWithBodyWithResponse request with any body
+	CreateApplicationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApplicationResponse, error)
+
+	CreateApplicationWithResponse(ctx context.Context, body CreateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApplicationResponse, error)
+
 	// GetDeclaredVmsWithResponse request
 	GetDeclaredVmsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeclaredVmsResponse, error)
 
@@ -341,6 +460,52 @@ type ClientWithResponsesInterface interface {
 
 	// GetRequestedVmsWithResponse request
 	GetRequestedVmsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetRequestedVmsResponse, error)
+}
+
+type GetApplicationsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ApplicationList
+	JSON400      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApplicationsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApplicationsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateApplicationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Application
+	JSON400      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateApplicationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateApplicationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type GetDeclaredVmsResponse struct {
@@ -434,6 +599,32 @@ func (r GetRequestedVmsResponse) StatusCode() int {
 	return 0
 }
 
+// GetApplicationsWithResponse request returning *GetApplicationsResponse
+func (c *ClientWithResponses) GetApplicationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApplicationsResponse, error) {
+	rsp, err := c.GetApplications(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApplicationsResponse(rsp)
+}
+
+// CreateApplicationWithBodyWithResponse request with arbitrary body returning *CreateApplicationResponse
+func (c *ClientWithResponses) CreateApplicationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApplicationResponse, error) {
+	rsp, err := c.CreateApplicationWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateApplicationResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateApplicationWithResponse(ctx context.Context, body CreateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApplicationResponse, error) {
+	rsp, err := c.CreateApplication(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateApplicationResponse(rsp)
+}
+
 // GetDeclaredVmsWithResponse request returning *GetDeclaredVmsResponse
 func (c *ClientWithResponses) GetDeclaredVmsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeclaredVmsResponse, error) {
 	rsp, err := c.GetDeclaredVms(ctx, reqEditors...)
@@ -476,6 +667,72 @@ func (c *ClientWithResponses) GetRequestedVmsWithResponse(ctx context.Context, r
 		return nil, err
 	}
 	return ParseGetRequestedVmsResponse(rsp)
+}
+
+// ParseGetApplicationsResponse parses an HTTP response from a GetApplicationsWithResponse call
+func ParseGetApplicationsResponse(rsp *http.Response) (*GetApplicationsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApplicationsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApplicationList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateApplicationResponse parses an HTTP response from a CreateApplicationWithResponse call
+func ParseCreateApplicationResponse(rsp *http.Response) (*CreateApplicationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateApplicationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Application
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseGetDeclaredVmsResponse parses an HTTP response from a GetDeclaredVmsWithResponse call

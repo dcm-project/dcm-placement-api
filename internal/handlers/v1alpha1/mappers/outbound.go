@@ -13,7 +13,6 @@ func RequestedVmToAPI(dbVm model.RequestedVm) server.VM {
 		Ram:      dbVm.Ram,
 		Os:       dbVm.Os,
 		Cpu:      dbVm.Cpu,
-		Region:   dbVm.Region,
 		Role:     dbVm.Role,
 		TenantId: &dbVm.TenantId,
 	}
@@ -46,7 +45,6 @@ func DeclaredVmToAPI(dbVm model.DeclaredVm) server.DeclaredVm {
 		Ram:      dbVm.RequestedVm.Ram,
 		Os:       dbVm.RequestedVm.Os,
 		Cpu:      dbVm.RequestedVm.Cpu,
-		Region:   dbVm.RequestedVm.Region,
 		Role:     dbVm.RequestedVm.Role,
 		TenantId: &dbVm.RequestedVm.TenantId,
 	}
@@ -62,4 +60,16 @@ func DeclaredVmListToAPI(dbVms model.DeclaredVmList) server.DeclaredVmList {
 		apiVms = append(apiVms, apiVm)
 	}
 	return apiVms
+}
+
+// ApplicationListToAPI converts database ApplicationList to API ApplicationList
+func ApplicationListToAPI(dbApps model.ApplicationList) server.ApplicationList {
+	var apiApps server.ApplicationList
+	for _, dbApp := range dbApps {
+		apiApp := server.Application{
+			Name: dbApp.Name,
+		}
+		apiApps = append(apiApps, apiApp)
+	}
+	return apiApps
 }

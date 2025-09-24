@@ -24,7 +24,7 @@ func NewDeployService(client kubecli.KubevirtClient) *DeployService {
 	}
 }
 
-func (s *DeployService) DeployVM(ctx context.Context, vm *model.RequestedVm) error {
+func (s *DeployService) DeployVM(ctx context.Context, vm *model.RequestedVm, namespace string) error {
 	logger := zap.S().Named("deploy_vm")
 	logger.Info("Starting deployment for Virtual Machine")
 	// Create Namespace for the Virtual Machine
@@ -36,8 +36,7 @@ func (s *DeployService) DeployVM(ctx context.Context, vm *model.RequestedVm) err
 	memory := resource.MustParse(fmt.Sprintf("%dGi", vm.Ram))
 	virtualMachine := &kubevirtv1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      vm.Name,
-			Namespace: vm.Region, // Using region as namespace
+			Name: vm.Name,
 		},
 		Spec: kubevirtv1.VirtualMachineSpec{
 			RunStrategy: &[]kubevirtv1.VirtualMachineRunStrategy{kubevirtv1.RunStrategyRerunOnFailure}[0],
@@ -139,7 +138,7 @@ func (s *DeployService) DeployVM(ctx context.Context, vm *model.RequestedVm) err
 	}
 
 	// Create the VirtualMachine in the cluster
-	_, err := s.client.VirtualMachine(vm.Region).Create(ctx, virtualMachine, metav1.CreateOptions{})
+	_, err := s.client.VirtualMachine(namespace).Create(ctx, virtualMachine, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create VirtualMachine: %w", err)
 	}
@@ -165,7 +164,7 @@ func (s *DeployService) getNamespace(ctx context.Context, namespace string) erro
 			return fmt.Errorf("failed to create namespace %s: %w", namespace, err)
 		}
 	}
-	logger.Info("Successfully created namespace", "Namespace", namespace)
+	logger.Info("Successfully created namespace.", "Namespace", namespace)
 	return nil
 }
 

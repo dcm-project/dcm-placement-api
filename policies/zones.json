@@ -1,0 +1,16 @@
+{
+    "env": {
+        "prod": {
+            "zones": [
+                "us-east-1",
+                "us-east-2"
+            ]
+        },
+        "dev": {
+            "zones": [
+                "us-west-0",
+                "us-west-1"
+            ]
+        }
+    }
+}

@@ -13,6 +13,29 @@ import (
 	strictnethttp "github.com/oapi-codegen/runtime/strictmiddleware/nethttp"
 )
 
+// Defines values for ApplicationService.
+const (
+	Webserver ApplicationService = "webserver"
+)
+
+// Application defines model for Application.
+type Application struct {
+	// Name Name of the application
+	Name string `json:"name"`
+
+	// Service Service of the application
+	Service ApplicationService `json:"service"`
+
+	// Zones Zones of the application
+	Zones *[]string `json:"zones,omitempty"`
+}
+
+// ApplicationService Service of the application
+type ApplicationService string
+
+// ApplicationList defines model for ApplicationList.
+type ApplicationList = []Application
+
 // DeclaredVm defines model for DeclaredVm.
 type DeclaredVm struct {
 	// Cpu Number of CPU cores
@@ -49,7 +72,7 @@ type DeclaredVm struct {
 	Ram int `json:"ram"`
 
 	// Region Target region for placement
-	Region string `json:"region"`
+	Region *string `json:"region,omitempty"`
 
 	// Role Role of the VM
 	Role string `json:"role"`
@@ -106,7 +129,7 @@ type VM struct {
 	Ram int `json:"ram"`
 
 	// Region Target region for placement
-	Region string `json:"region"`
+	Region *string `json:"region,omitempty"`
 
 	// Role Role of the VM
 	Role string `json:"role"`
@@ -115,11 +138,20 @@ type VM struct {
 	TenantId *string `json:"tenantId,omitempty"`
 }
 
+// CreateApplicationJSONRequestBody defines body for CreateApplication for application/json ContentType.
+type CreateApplicationJSONRequestBody = Application
+
 // PlaceVMJSONRequestBody defines body for PlaceVM for application/json ContentType.
 type PlaceVMJSONRequestBody = VM
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Get all applications
+	// (GET /applications)
+	GetApplications(w http.ResponseWriter, r *http.Request)
+	// Create an application
+	// (POST /applications)
+	CreateApplication(w http.ResponseWriter, r *http.Request)
 	// Get all declared virtual machines
 	// (GET /declaredvms)
 	GetDeclaredVms(w http.ResponseWriter, r *http.Request)
@@ -137,6 +169,18 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// Get all applications
+// (GET /applications)
+func (_ Unimplemented) GetApplications(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create an application
+// (POST /applications)
+func (_ Unimplemented) CreateApplication(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // Get all declared virtual machines
 // (GET /declaredvms)
@@ -170,6 +214,36 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// GetApplications operation middleware
+func (siw *ServerInterfaceWrapper) GetApplications(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetApplications(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// CreateApplication operation middleware
+func (siw *ServerInterfaceWrapper) CreateApplication(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateApplication(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
 
 // GetDeclaredVms operation middleware
 func (siw *ServerInterfaceWrapper) GetDeclaredVms(w http.ResponseWriter, r *http.Request) {
@@ -345,6 +419,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/applications", wrapper.GetApplications)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/applications", wrapper.CreateApplication)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/declaredvms", wrapper.GetDeclaredVms)
 	})
 	r.Group(func(r chi.Router) {
@@ -358,6 +438,57 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 
 	return r
+}
+
+type GetApplicationsRequestObject struct {
+}
+
+type GetApplicationsResponseObject interface {
+	VisitGetApplicationsResponse(w http.ResponseWriter) error
+}
+
+type GetApplications200JSONResponse ApplicationList
+
+func (response GetApplications200JSONResponse) VisitGetApplicationsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetApplications400JSONResponse Error
+
+func (response GetApplications400JSONResponse) VisitGetApplicationsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateApplicationRequestObject struct {
+	Body *CreateApplicationJSONRequestBody
+}
+
+type CreateApplicationResponseObject interface {
+	VisitCreateApplicationResponse(w http.ResponseWriter) error
+}
+
+type CreateApplication201JSONResponse Application
+
+func (response CreateApplication201JSONResponse) VisitCreateApplicationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateApplication400JSONResponse Error
+
+func (response CreateApplication400JSONResponse) VisitCreateApplicationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
 }
 
 type GetDeclaredVmsRequestObject struct {
@@ -462,6 +593,12 @@ func (response GetRequestedVms400JSONResponse) VisitGetRequestedVmsResponse(w ht
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// Get all applications
+	// (GET /applications)
+	GetApplications(ctx context.Context, request GetApplicationsRequestObject) (GetApplicationsResponseObject, error)
+	// Create an application
+	// (POST /applications)
+	CreateApplication(ctx context.Context, request CreateApplicationRequestObject) (CreateApplicationResponseObject, error)
 	// Get all declared virtual machines
 	// (GET /declaredvms)
 	GetDeclaredVms(ctx context.Context, request GetDeclaredVmsRequestObject) (GetDeclaredVmsResponseObject, error)
@@ -503,6 +640,61 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// GetApplications operation middleware
+func (sh *strictHandler) GetApplications(w http.ResponseWriter, r *http.Request) {
+	var request GetApplicationsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetApplications(ctx, request.(GetApplicationsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetApplications")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetApplicationsResponseObject); ok {
+		if err := validResponse.VisitGetApplicationsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateApplication operation middleware
+func (sh *strictHandler) CreateApplication(w http.ResponseWriter, r *http.Request) {
+	var request CreateApplicationRequestObject
+
+	var body CreateApplicationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateApplication(ctx, request.(CreateApplicationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateApplication")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateApplicationResponseObject); ok {
+		if err := validResponse.VisitCreateApplicationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // GetDeclaredVms operation middleware

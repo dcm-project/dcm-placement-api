@@ -18,6 +18,47 @@ paths:
         '200':
           description: OK
 
+  /applications:
+    post:
+      summary: Create an application
+      operationId: createApplication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Application'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: Get all applications
+      operationId: getApplications
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationList'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              
+
   /requestedvms:
     get:
       summary: Get all requested virtual machines
@@ -86,6 +127,33 @@ paths:
 
 components:
   schemas:
+    Application:
+      type: object
+      required:
+        - name
+        - service
+      properties:
+        name:
+          type: string
+          description: Name of the application
+          example: "app-server-01"
+        service:
+          type: string
+          description: Service of the application
+          enum:
+            - "webserver"
+        zones:
+          type: array
+          items:
+            type: string
+          description: Zones of the application
+          example: ["us-east-1", "us-east-2"]
+
+    ApplicationList:
+      type: array
+      items:
+        $ref: '#/components/schemas/Application'
+
     VM:
       type: object
       required:
@@ -94,9 +162,7 @@ components:
         - os
         - cpu
         - env
-        - region
         - role
-        - tenantid
       properties:
         name:
           type: string
