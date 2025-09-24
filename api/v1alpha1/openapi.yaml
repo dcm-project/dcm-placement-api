@@ -148,6 +148,9 @@ components:
             type: string
           description: Zones of the application
           example: ["us-east-1", "us-east-2"]
+        tier:
+          type: string
+          description: Policy Tier of the application
 
     ApplicationList:
       type: array

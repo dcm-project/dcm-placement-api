@@ -67,7 +67,10 @@ func (s *ServiceHandler) CreateApplication(ctx context.Context, request server.C
 		return server.CreateApplication400JSONResponse{}, err
 	}
 	logger.Info("Application created", "Application", request)
-	return server.CreateApplication201JSONResponse{}, nil
+	return server.CreateApplication201JSONResponse{
+		Name:    request.Body.Name,
+		Service: request.Body.Service,
+	}, nil
 }
 
 // (POST /place/vm)

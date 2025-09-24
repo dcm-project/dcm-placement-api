@@ -27,20 +27,16 @@ func NewPlacementService(store store.Store, opa *opa.Validator, deploy *deploy.D
 }
 
 func (s *PlacementService) CreateApplication(ctx context.Context, request *server.CreateApplicationJSONRequestBody) error {
-	logger := zap.S().Named("placement_service")
+	logger := zap.S().Named("placement_service:create_app")
 
-	_, err := s.store.Application().Create(ctx, model.Application{
-		ID:      uuid.New(),
-		Name:    request.Name,
-		Service: string(request.Service),
-		Zones:   request.Zones,
-	})
-	if err != nil {
-		return err
+	// Handle tier field with default value
+	tier := "tier1"
+	if request.Tier != nil {
+		tier = *request.Tier
 	}
 
 	// OPA validation:
-	result, err := s.opa.EvalPolicy(ctx, "tier1", map[string]string{
+	result, err := s.opa.EvalPolicy(ctx, tier, map[string]string{
 		"name": request.Name,
 		"tier": "1",
 	})
@@ -65,6 +61,18 @@ func (s *PlacementService) CreateApplication(ctx context.Context, request *serve
 		if err != nil {
 			return err
 		}
+	}
+
+	// Store in database post validation
+	_, err = s.store.Application().Create(ctx, model.Application{
+		ID:      uuid.New(),
+		Name:    request.Name,
+		Service: string(request.Service),
+		Zones:   zones,
+		Tier:    tier,
+	})
+	if err != nil {
+		return err
 	}
 
 	return nil

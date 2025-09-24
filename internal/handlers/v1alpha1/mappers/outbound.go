@@ -67,7 +67,9 @@ func ApplicationListToAPI(dbApps model.ApplicationList) server.ApplicationList {
 	var apiApps server.ApplicationList
 	for _, dbApp := range dbApps {
 		apiApp := server.Application{
-			Name: dbApp.Name,
+			Name:    dbApp.Name,
+			Service: server.ApplicationService(dbApp.Service),
+			Tier:    &dbApp.Tier,
 		}
 		apiApps = append(apiApps, apiApp)
 	}

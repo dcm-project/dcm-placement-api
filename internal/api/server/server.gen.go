@@ -26,6 +26,9 @@ type Application struct {
 	// Service Service of the application
 	Service ApplicationService `json:"service"`
 
+	// Tier Policy Tier of the application
+	Tier *string `json:"tier,omitempty"`
+
 	// Zones Zones of the application
 	Zones *[]string `json:"zones,omitempty"`
 }

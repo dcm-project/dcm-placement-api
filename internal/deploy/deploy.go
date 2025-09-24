@@ -28,7 +28,7 @@ func (s *DeployService) DeployVM(ctx context.Context, vm *model.RequestedVm, nam
 	logger := zap.S().Named("deploy_vm")
 	logger.Info("Starting deployment for Virtual Machine")
 	// Create Namespace for the Virtual Machine
-	if err := s.getNamespace(ctx, vm.Region); err != nil {
+	if err := s.getNamespace(ctx, namespace); err != nil {
 		return err
 	}
 
@@ -36,7 +36,8 @@ func (s *DeployService) DeployVM(ctx context.Context, vm *model.RequestedVm, nam
 	memory := resource.MustParse(fmt.Sprintf("%dGi", vm.Ram))
 	virtualMachine := &kubevirtv1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: vm.Name,
+			Name:      vm.Name,
+			Namespace: namespace,
 		},
 		Spec: kubevirtv1.VirtualMachineSpec{
 			RunStrategy: &[]kubevirtv1.VirtualMachineRunStrategy{kubevirtv1.RunStrategyRerunOnFailure}[0],
