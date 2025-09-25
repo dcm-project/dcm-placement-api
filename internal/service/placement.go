@@ -34,26 +34,23 @@ func (s *PlacementService) CreateApplication(ctx context.Context, request *serve
 		tier = *request.Tier
 	}
 	logger.Info("Evaluating policy: ", "Tier: ", fmt.Sprintf("%d", tier))
-	result, err := s.opa.EvalPolicy(ctx, fmt.Sprintf("tier%d", tier), map[string]string{
-		"name": request.Name,
-	})
+	result, err := s.opa.EvalTierPolicy(ctx, tier, request.Name, request.Zones)
 	if err != nil {
 		return nil, err
 	}
 
 	logger.Info("OPA validation result: ", "Result: ", result)
 
-	if !s.opa.IsInputValid(result) {
-		//logger.Warn("Invalid input: ", "Input: ", request)
+	if !s.opa.IsValid(result) {
+		failures := s.opa.GetFailures(result)
+		if len(failures) > 0 {
+			return nil, fmt.Errorf("validation failed: %v", failures)
+		}
+		return nil, fmt.Errorf("input validation failed")
 	}
-
-	if !s.opa.IsOutputValid(result) {
-		return nil, fmt.Errorf("invalid output")
-	}
-
-	zones := s.opa.GetOutputZones(result)
 
 	// Store in database post validation
+	zones := s.opa.GetRequiredZones(result)
 	app, err := s.store.Application().Create(ctx, model.Application{
 		ID:      uuid.New(),
 		Name:    request.Name,
