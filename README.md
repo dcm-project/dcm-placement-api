@@ -13,10 +13,6 @@ VM Placement Service API for optimizing virtual machine placement across infrast
 0. ** Login to openshift/k8s with CNV and create namespaces **
    ```bash
    oc login ...
-   oc create ns us-east-1
-   oc create ns us-east-2
-   oc create ns us-west-1
-   oc create ns us-west-2
    ```
 
 1. **Start the database:**
@@ -36,7 +32,7 @@ VM Placement Service API for optimizing virtual machine placement across infrast
 
 5. **Create app:**
    ```bash
-   curl -v -X POST -H "Content-type: application/json" --data '{"name": "myvm", "service": "webserver", "tier": "1"}'  http://localhost:8080/applications
+   curl -v -X POST -H "Content-type: application/json" --data '{"name": "myvm", "service": "webserver", "tier": 1}'  http://localhost:8080/applications
    ```
 
 6. **Check VMs:**
