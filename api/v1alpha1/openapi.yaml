@@ -78,6 +78,11 @@ components:
         - name
         - service
       properties:
+        id:
+          type: string
+          description: ID of the application
+          example: "123e4567-e89b-12d3-a456-426614174000"
+          format: uuid
         name:
           type: string
           description: Name of the application
@@ -94,8 +99,9 @@ components:
           description: Zones of the application
           example: ["us-east-1", "us-east-2"]
         tier:
-          type: string
+          type: integer
           description: Policy Tier of the application
+          default: 2
 
     ApplicationList:
       type: array

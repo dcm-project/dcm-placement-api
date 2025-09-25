@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	strictnethttp "github.com/oapi-codegen/runtime/strictmiddleware/nethttp"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for ApplicationService.
@@ -20,6 +21,9 @@ const (
 
 // Application defines model for Application.
 type Application struct {
+	// Id ID of the application
+	Id *openapi_types.UUID `json:"id,omitempty"`
+
 	// Name Name of the application
 	Name string `json:"name"`
 
@@ -27,7 +31,7 @@ type Application struct {
 	Service ApplicationService `json:"service"`
 
 	// Tier Policy Tier of the application
-	Tier *string `json:"tier,omitempty"`
+	Tier *int `json:"tier,omitempty"`
 
 	// Zones Zones of the application
 	Zones *[]string `json:"zones,omitempty"`

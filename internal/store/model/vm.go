@@ -12,7 +12,7 @@ type Application struct {
 	Name    string         `gorm:"name;not null"`
 	Service string         `gorm:"service;not null"`
 	Zones   pq.StringArray `gorm:"type:text[]"`
-	Tier    string         `gorm:"tier;not null"`
+	Tier    int            `gorm:"tier;not null"`
 }
 
 type ApplicationList []Application
