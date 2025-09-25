@@ -29,54 +29,6 @@ type ApplicationService string
 // ApplicationList defines model for ApplicationList.
 type ApplicationList = []Application
 
-// DeclaredVm defines model for DeclaredVm.
-type DeclaredVm struct {
-	// Cpu Number of CPU cores
-	Cpu int `json:"cpu"`
-
-	// CreatedAt CreatedAt
-	CreatedAt *string `json:"createdAt,omitempty"`
-
-	// DnsName DNS Name
-	DnsName *string `json:"dnsName,omitempty"`
-
-	// Env Environment (dev, staging, prod)
-	Env string `json:"env"`
-
-	// Gateway Gateway
-	Gateway *string `json:"gateway,omitempty"`
-
-	// Id Declared VM ID
-	Id *string `json:"id,omitempty"`
-
-	// IpAddress IP Address
-	IpAddress *string `json:"ipAddress,omitempty"`
-
-	// Name Name of the virtual machine
-	Name string `json:"name"`
-
-	// Netmask Netmask
-	Netmask *string `json:"netmask,omitempty"`
-
-	// Os Operating system
-	Os string `json:"os"`
-
-	// Ram RAM in GB
-	Ram int `json:"ram"`
-
-	// Region Target region for placement
-	Region *string `json:"region,omitempty"`
-
-	// Role Role of the VM
-	Role string `json:"role"`
-
-	// TenantId Tenant ID
-	TenantId *string `json:"tenantId,omitempty"`
-}
-
-// DeclaredVmList defines model for DeclaredVmList.
-type DeclaredVmList = []DeclaredVm
-
 // Error defines model for Error.
 type Error struct {
 	// Code Error code
@@ -86,53 +38,5 @@ type Error struct {
 	Error string `json:"error"`
 }
 
-// PlacementResponse defines model for PlacementResponse.
-type PlacementResponse struct {
-	// Host Target host
-	Host *string `json:"host,omitempty"`
-
-	// Id Placement ID
-	Id *string `json:"id,omitempty"`
-
-	// Message Status message
-	Message string `json:"message"`
-
-	// Status Placement status
-	Status *string `json:"status,omitempty"`
-}
-
-// RequestedVmList defines model for RequestedVmList.
-type RequestedVmList = []VM
-
-// VM defines model for VM.
-type VM struct {
-	// Cpu Number of CPU cores
-	Cpu int `json:"cpu"`
-
-	// Env Environment (dev, staging, prod)
-	Env string `json:"env"`
-
-	// Name Name of the virtual machine
-	Name string `json:"name"`
-
-	// Os Operating system
-	Os string `json:"os"`
-
-	// Ram RAM in GB
-	Ram int `json:"ram"`
-
-	// Region Target region for placement
-	Region *string `json:"region,omitempty"`
-
-	// Role Role of the VM
-	Role string `json:"role"`
-
-	// TenantId Tenant ID
-	TenantId *string `json:"tenantId,omitempty"`
-}
-
 // CreateApplicationJSONRequestBody defines body for CreateApplication for application/json ContentType.
 type CreateApplicationJSONRequestBody = Application
-
-// PlaceVMJSONRequestBody defines body for PlaceVM for application/json ContentType.
-type PlaceVMJSONRequestBody = VM
