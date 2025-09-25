@@ -31,7 +31,7 @@ func (s *ServiceHandler) Health(ctx context.Context, request server.HealthReques
 func (s *ServiceHandler) GetApplications(ctx context.Context, request server.GetApplicationsRequestObject) (server.GetApplicationsResponseObject, error) {
 	applications, err := s.store.Application().List(ctx)
 	if err != nil {
-		return server.GetApplications400JSONResponse{}, err
+		return server.GetApplications400JSONResponse{}, nil
 	}
 	return server.GetApplications200JSONResponse(mappers.ApplicationListToAPI(applications)), nil
 }
@@ -58,7 +58,7 @@ func (s *ServiceHandler) CreateApplication(ctx context.Context, request server.C
 	app, err := s.ps.CreateApplication(ctx, request.Body)
 	if err != nil {
 		logger.Error("Failed to create Application: ", "error", err)
-		return server.CreateApplication400JSONResponse{Error: err.Error()}, err
+		return server.CreateApplication400JSONResponse{Error: err.Error()}, nil
 	}
 	logger.Info("Application created. ", "Application: ", app)
 	return server.CreateApplication201JSONResponse(*app), nil
