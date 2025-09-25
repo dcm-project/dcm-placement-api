@@ -6,10 +6,18 @@ VM Placement Service API for optimizing virtual machine placement across infrast
 
 ### Prerequisites
 - Go 1.23+
-- Podman and podman-compose
+- Podman
 - Cluster with KubeVirt - Find more information [here](https://kubevirt.io/quickstart_kind/)
 
 ### Steps
+0. ** Login to openshift/k8s with CNV and create namespaces **
+   ```bash
+   oc login ...
+   oc create ns us-east-1
+   oc create ns us-east-2
+   oc create ns us-west-1
+   oc create ns us-west-2
+   ```
 
 1. **Start the database:**
    ```bash
@@ -26,16 +34,13 @@ VM Placement Service API for optimizing virtual machine placement across infrast
    make run
    ```
 
-5. **Create a VM:**
+5. **Create app:**
    ```bash
-   # Not allowed:
-   curl -X POST -H "Content-type: application/json" --data '{"name": "myvm", "env": "PROD", "region": "us-east-2", "ram": 1, "os": "RHEL", "cpu": 2, "role": "public-facing", "tenantid": "PRCR-001"}'  http://localhost:8080/place/vm
-   # Allowed
-   curl -X POST -H "Content-type: application/json" --data '{"name": "myvm", "env": "PROD", "region": "us-east-1", "ram": 1, "os": "RHEL", "cpu": 2, "role": "public-facing", "tenantid": "PRCR-001"}'  http://localhost:8080/place/vm
+   curl -v -X POST -H "Content-type: application/json" --data '{"name": "myvm", "service": "webserver", "tier": "1"}'  http://localhost:8080/applications
    ```
 
-5. **Get a VMs:**
+6. **Check VMs:**
    ```bash
-   curl http://localhost:8080/declaredvms
-   curl http://localhost:8080/requestedvms
+   oc get vm -n us-east-1
+   oc get vm -n us-east-2
    ```
