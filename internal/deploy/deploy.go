@@ -11,7 +11,7 @@ import (
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"github.com/dcm-project/dcm-placement-api/internal/store/model"
+	"github.com/dcm-project/dcm-placement-api/internal/catalog"
 )
 
 type DeployService struct {
@@ -24,7 +24,7 @@ func NewDeployService(client kubecli.KubevirtClient) *DeployService {
 	}
 }
 
-func (s *DeployService) DeployVM(ctx context.Context, vm *model.RequestedVm, namespace string) error {
+func (s *DeployService) DeployVM(ctx context.Context, name string, vm *catalog.CatalogVm, namespace string) error {
 	logger := zap.S().Named("deploy_vm")
 	logger.Info("Starting deployment for Virtual Machine")
 	// Create Namespace for the Virtual Machine
@@ -36,7 +36,7 @@ func (s *DeployService) DeployVM(ctx context.Context, vm *model.RequestedVm, nam
 	memory := resource.MustParse(fmt.Sprintf("%dGi", vm.Ram))
 	virtualMachine := &kubevirtv1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      vm.Name,
+			Name:      name,
 			Namespace: namespace,
 		},
 		Spec: kubevirtv1.VirtualMachineSpec{
@@ -68,7 +68,7 @@ func (s *DeployService) DeployVM(ctx context.Context, vm *model.RequestedVm, nam
 						Devices: kubevirtv1.Devices{
 							Disks: []kubevirtv1.Disk{
 								{
-									Name:      fmt.Sprintf("%s-disk", vm.Name),
+									Name:      fmt.Sprintf("%s-disk", name),
 									BootOrder: &[]uint{1}[0],
 									DiskDevice: kubevirtv1.DiskDevice{
 										Disk: &kubevirtv1.DiskTarget{
@@ -117,7 +117,7 @@ func (s *DeployService) DeployVM(ctx context.Context, vm *model.RequestedVm, nam
 					TerminationGracePeriodSeconds: &[]int64{180}[0],
 					Volumes: []kubevirtv1.Volume{
 						{
-							Name: fmt.Sprintf("%s-disk", vm.Name),
+							Name: fmt.Sprintf("%s-disk", name),
 							VolumeSource: kubevirtv1.VolumeSource{
 								ContainerDisk: &kubevirtv1.ContainerDiskSource{
 									Image: s.getOSImage(vm.Os),
@@ -128,7 +128,7 @@ func (s *DeployService) DeployVM(ctx context.Context, vm *model.RequestedVm, nam
 							Name: "cloudinitdisk",
 							VolumeSource: kubevirtv1.VolumeSource{
 								CloudInitNoCloud: &kubevirtv1.CloudInitNoCloudSource{
-									UserData: s.generateCloudInitUserData(vm),
+									UserData: s.generateCloudInitUserData(name, vm),
 								},
 							},
 						},
@@ -186,11 +186,11 @@ func (s *DeployService) getOSImage(os string) string {
 }
 
 // generateCloudInitUserData generates cloud-init user data for the VM
-func (s *DeployService) generateCloudInitUserData(vm *model.RequestedVm) string {
+func (s *DeployService) generateCloudInitUserData(appName string, vm *catalog.CatalogVm) string {
 	return fmt.Sprintf(`#cloud-config
 user: %s
 password: auto-generated-pass
 chpasswd: { expire: False }
 hostname: %s
-`, vm.Role, vm.Name)
+`, vm.Os, appName)
 }

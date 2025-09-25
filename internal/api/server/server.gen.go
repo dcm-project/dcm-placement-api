@@ -39,54 +39,6 @@ type ApplicationService string
 // ApplicationList defines model for ApplicationList.
 type ApplicationList = []Application
 
-// DeclaredVm defines model for DeclaredVm.
-type DeclaredVm struct {
-	// Cpu Number of CPU cores
-	Cpu int `json:"cpu"`
-
-	// CreatedAt CreatedAt
-	CreatedAt *string `json:"createdAt,omitempty"`
-
-	// DnsName DNS Name
-	DnsName *string `json:"dnsName,omitempty"`
-
-	// Env Environment (dev, staging, prod)
-	Env string `json:"env"`
-
-	// Gateway Gateway
-	Gateway *string `json:"gateway,omitempty"`
-
-	// Id Declared VM ID
-	Id *string `json:"id,omitempty"`
-
-	// IpAddress IP Address
-	IpAddress *string `json:"ipAddress,omitempty"`
-
-	// Name Name of the virtual machine
-	Name string `json:"name"`
-
-	// Netmask Netmask
-	Netmask *string `json:"netmask,omitempty"`
-
-	// Os Operating system
-	Os string `json:"os"`
-
-	// Ram RAM in GB
-	Ram int `json:"ram"`
-
-	// Region Target region for placement
-	Region *string `json:"region,omitempty"`
-
-	// Role Role of the VM
-	Role string `json:"role"`
-
-	// TenantId Tenant ID
-	TenantId *string `json:"tenantId,omitempty"`
-}
-
-// DeclaredVmList defines model for DeclaredVmList.
-type DeclaredVmList = []DeclaredVm
-
 // Error defines model for Error.
 type Error struct {
 	// Code Error code
@@ -96,56 +48,8 @@ type Error struct {
 	Error string `json:"error"`
 }
 
-// PlacementResponse defines model for PlacementResponse.
-type PlacementResponse struct {
-	// Host Target host
-	Host *string `json:"host,omitempty"`
-
-	// Id Placement ID
-	Id *string `json:"id,omitempty"`
-
-	// Message Status message
-	Message string `json:"message"`
-
-	// Status Placement status
-	Status *string `json:"status,omitempty"`
-}
-
-// RequestedVmList defines model for RequestedVmList.
-type RequestedVmList = []VM
-
-// VM defines model for VM.
-type VM struct {
-	// Cpu Number of CPU cores
-	Cpu int `json:"cpu"`
-
-	// Env Environment (dev, staging, prod)
-	Env string `json:"env"`
-
-	// Name Name of the virtual machine
-	Name string `json:"name"`
-
-	// Os Operating system
-	Os string `json:"os"`
-
-	// Ram RAM in GB
-	Ram int `json:"ram"`
-
-	// Region Target region for placement
-	Region *string `json:"region,omitempty"`
-
-	// Role Role of the VM
-	Role string `json:"role"`
-
-	// TenantId Tenant ID
-	TenantId *string `json:"tenantId,omitempty"`
-}
-
 // CreateApplicationJSONRequestBody defines body for CreateApplication for application/json ContentType.
 type CreateApplicationJSONRequestBody = Application
-
-// PlaceVMJSONRequestBody defines body for PlaceVM for application/json ContentType.
-type PlaceVMJSONRequestBody = VM
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -155,18 +59,9 @@ type ServerInterface interface {
 	// Create an application
 	// (POST /applications)
 	CreateApplication(w http.ResponseWriter, r *http.Request)
-	// Get all declared virtual machines
-	// (GET /declaredvms)
-	GetDeclaredVms(w http.ResponseWriter, r *http.Request)
 	// Health check
 	// (GET /health)
 	Health(w http.ResponseWriter, r *http.Request)
-	// Place a virtual machine
-	// (POST /place/vm)
-	PlaceVM(w http.ResponseWriter, r *http.Request)
-	// Get all requested virtual machines
-	// (GET /requestedvms)
-	GetRequestedVms(w http.ResponseWriter, r *http.Request)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -185,27 +80,9 @@ func (_ Unimplemented) CreateApplication(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Get all declared virtual machines
-// (GET /declaredvms)
-func (_ Unimplemented) GetDeclaredVms(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
 // Health check
 // (GET /health)
 func (_ Unimplemented) Health(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Place a virtual machine
-// (POST /place/vm)
-func (_ Unimplemented) PlaceVM(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Get all requested virtual machines
-// (GET /requestedvms)
-func (_ Unimplemented) GetRequestedVms(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -248,57 +125,12 @@ func (siw *ServerInterfaceWrapper) CreateApplication(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
-// GetDeclaredVms operation middleware
-func (siw *ServerInterfaceWrapper) GetDeclaredVms(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetDeclaredVms(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r.WithContext(ctx))
-}
-
 // Health operation middleware
 func (siw *ServerInterfaceWrapper) Health(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.Health(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r.WithContext(ctx))
-}
-
-// PlaceVM operation middleware
-func (siw *ServerInterfaceWrapper) PlaceVM(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PlaceVM(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r.WithContext(ctx))
-}
-
-// GetRequestedVms operation middleware
-func (siw *ServerInterfaceWrapper) GetRequestedVms(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetRequestedVms(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -428,16 +260,7 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/applications", wrapper.CreateApplication)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/declaredvms", wrapper.GetDeclaredVms)
-	})
-	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/health", wrapper.Health)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/place/vm", wrapper.PlaceVM)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/requestedvms", wrapper.GetRequestedVms)
 	})
 
 	return r
@@ -468,6 +291,15 @@ func (response GetApplications400JSONResponse) VisitGetApplicationsResponse(w ht
 	return json.NewEncoder(w).Encode(response)
 }
 
+type GetApplications500JSONResponse Error
+
+func (response GetApplications500JSONResponse) VisitGetApplicationsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type CreateApplicationRequestObject struct {
 	Body *CreateApplicationJSONRequestBody
 }
@@ -494,27 +326,11 @@ func (response CreateApplication400JSONResponse) VisitCreateApplicationResponse(
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetDeclaredVmsRequestObject struct {
-}
+type CreateApplication500JSONResponse Error
 
-type GetDeclaredVmsResponseObject interface {
-	VisitGetDeclaredVmsResponse(w http.ResponseWriter) error
-}
-
-type GetDeclaredVms200JSONResponse DeclaredVmList
-
-func (response GetDeclaredVms200JSONResponse) VisitGetDeclaredVmsResponse(w http.ResponseWriter) error {
+func (response CreateApplication500JSONResponse) VisitCreateApplicationResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetDeclaredVms400JSONResponse Error
-
-func (response GetDeclaredVms400JSONResponse) VisitGetDeclaredVmsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
+	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -534,66 +350,6 @@ func (response Health200Response) VisitHealthResponse(w http.ResponseWriter) err
 	return nil
 }
 
-type PlaceVMRequestObject struct {
-	Body *PlaceVMJSONRequestBody
-}
-
-type PlaceVMResponseObject interface {
-	VisitPlaceVMResponse(w http.ResponseWriter) error
-}
-
-type PlaceVM200JSONResponse PlacementResponse
-
-func (response PlaceVM200JSONResponse) VisitPlaceVMResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type PlaceVM400JSONResponse Error
-
-func (response PlaceVM400JSONResponse) VisitPlaceVMResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type PlaceVM500JSONResponse Error
-
-func (response PlaceVM500JSONResponse) VisitPlaceVMResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetRequestedVmsRequestObject struct {
-}
-
-type GetRequestedVmsResponseObject interface {
-	VisitGetRequestedVmsResponse(w http.ResponseWriter) error
-}
-
-type GetRequestedVms200JSONResponse RequestedVmList
-
-func (response GetRequestedVms200JSONResponse) VisitGetRequestedVmsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetRequestedVms400JSONResponse Error
-
-func (response GetRequestedVms400JSONResponse) VisitGetRequestedVmsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Get all applications
@@ -602,18 +358,9 @@ type StrictServerInterface interface {
 	// Create an application
 	// (POST /applications)
 	CreateApplication(ctx context.Context, request CreateApplicationRequestObject) (CreateApplicationResponseObject, error)
-	// Get all declared virtual machines
-	// (GET /declaredvms)
-	GetDeclaredVms(ctx context.Context, request GetDeclaredVmsRequestObject) (GetDeclaredVmsResponseObject, error)
 	// Health check
 	// (GET /health)
 	Health(ctx context.Context, request HealthRequestObject) (HealthResponseObject, error)
-	// Place a virtual machine
-	// (POST /place/vm)
-	PlaceVM(ctx context.Context, request PlaceVMRequestObject) (PlaceVMResponseObject, error)
-	// Get all requested virtual machines
-	// (GET /requestedvms)
-	GetRequestedVms(ctx context.Context, request GetRequestedVmsRequestObject) (GetRequestedVmsResponseObject, error)
 }
 
 type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
@@ -700,30 +447,6 @@ func (sh *strictHandler) CreateApplication(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-// GetDeclaredVms operation middleware
-func (sh *strictHandler) GetDeclaredVms(w http.ResponseWriter, r *http.Request) {
-	var request GetDeclaredVmsRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetDeclaredVms(ctx, request.(GetDeclaredVmsRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetDeclaredVms")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetDeclaredVmsResponseObject); ok {
-		if err := validResponse.VisitGetDeclaredVmsResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
 // Health operation middleware
 func (sh *strictHandler) Health(w http.ResponseWriter, r *http.Request) {
 	var request HealthRequestObject
@@ -741,61 +464,6 @@ func (sh *strictHandler) Health(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(HealthResponseObject); ok {
 		if err := validResponse.VisitHealthResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// PlaceVM operation middleware
-func (sh *strictHandler) PlaceVM(w http.ResponseWriter, r *http.Request) {
-	var request PlaceVMRequestObject
-
-	var body PlaceVMJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.PlaceVM(ctx, request.(PlaceVMRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "PlaceVM")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(PlaceVMResponseObject); ok {
-		if err := validResponse.VisitPlaceVMResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GetRequestedVms operation middleware
-func (sh *strictHandler) GetRequestedVms(w http.ResponseWriter, r *http.Request) {
-	var request GetRequestedVmsRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetRequestedVms(ctx, request.(GetRequestedVmsRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetRequestedVms")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetRequestedVmsResponseObject); ok {
-		if err := validResponse.VisitGetRequestedVmsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

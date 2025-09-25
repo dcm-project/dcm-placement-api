@@ -41,6 +41,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     get:
       summary: Get all applications
       operationId: getApplications
@@ -51,67 +57,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApplicationList'
-        '400':
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-              
-
-  /requestedvms:
-    get:
-      summary: Get all requested virtual machines
-      operationId: getRequestedVms
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RequestedVmList'
-        '400':
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /declaredvms:
-    get:
-      summary: Get all declared virtual machines
-      operationId: getDeclaredVms
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeclaredVmList'
-        '400':
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /place/vm:
-    post:
-      summary: Place a virtual machine
-      operationId: placeVM
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VM'
-      responses:
-        '200':
-          description: VM placement successful
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PlacementResponse'
         '400':
           description: Bad request
           content:
@@ -157,71 +102,6 @@ components:
       items:
         $ref: '#/components/schemas/Application'
 
-    VM:
-      type: object
-      required:
-        - name
-        - ram
-        - os
-        - cpu
-        - env
-        - role
-      properties:
-        name:
-          type: string
-          description: Name of the virtual machine
-          example: "app-server-01"
-        ram:
-          type: integer
-          description: RAM in GB
-          example: 128
-        os:
-          type: string
-          description: Operating system
-          example: "rhel"
-        cpu:
-          type: integer
-          description: Number of CPU cores
-          example: 8
-        env:
-          type: string
-          description: Environment (dev, staging, prod)
-          example: "prod"
-        region:
-          type: string
-          description: Target region for placement
-          example: "us-east-1"
-        role:
-          type: string
-          description: Role of the VM
-          example: "public-facing"
-        tenantId:
-          type: string
-          description: Tenant ID
-          example: "tenant-123"
-    
-    PlacementResponse:
-      required:
-        - message
-      type: object
-      properties:
-        id:
-          type: string
-          description: Placement ID
-          example: "placement-456"
-        status:
-          type: string
-          description: Placement status
-          example: "placed"
-        host:
-          type: string
-          description: Target host
-          example: "host-789"
-        message:
-          type: string
-          description: Status message
-          example: "VM successfully placed"
-    
     Error:
       required:
         - error
@@ -235,43 +115,3 @@ components:
           type: integer
           description: Error code
           example: 400
-
-    DeclaredVm:
-      allOf:
-        - $ref: '#/components/schemas/VM'
-        - type: object
-          properties:
-            id:
-              type: string
-              description: Declared VM ID
-              example: "declared-456"
-            ipAddress:
-              type: string
-              description: IP Address
-              example: "10.0.0.12"
-            gateway:
-              type: string
-              description: Gateway
-              example: "10.0.0.1"
-            netmask:
-              type: string
-              description: Netmask
-              example: "255.255.255.0"
-            dnsName:
-              type: string
-              description: DNS Name
-              example: "prcr.app.prod.com"
-            createdAt:
-              type: string
-              description: CreatedAt
-              example: "2025-09-18T15:44:00"
-
-    RequestedVmList:
-      type: array
-      items:
-        $ref: '#/components/schemas/VM'
-
-    DeclaredVmList:
-      type: array
-      items:
-        $ref: '#/components/schemas/DeclaredVm'
