@@ -16,7 +16,15 @@ func NewValidator(server string) *Validator {
 	return &Validator{server: server}
 }
 
-func (v *Validator) EvalPolicy(ctx context.Context, policy string, input interface{}) (map[string]interface{}, error) {
+func (v *Validator) EvalTierPolicy(ctx context.Context, tier int, appName string, zones *[]string) (map[string]interface{}, error) {
+	input := map[string]interface{}{
+		"name":  appName,
+		"zones": zones,
+	}
+	return v.evalPolicy(ctx, tier, input)
+}
+
+func (v *Validator) evalPolicy(ctx context.Context, tier int, input interface{}) (map[string]interface{}, error) {
 	requestBody := map[string]interface{}{
 		"input": input,
 	}
@@ -26,7 +34,7 @@ func (v *Validator) EvalPolicy(ctx context.Context, policy string, input interfa
 		return nil, err
 	}
 
-	url := fmt.Sprintf("%s/v1/data/%s", v.server, policy)
+	url := fmt.Sprintf("%s/v1/data/tier%d", v.server, tier)
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, err
@@ -48,20 +56,39 @@ func (v *Validator) EvalPolicy(ctx context.Context, policy string, input interfa
 	return result["result"].(map[string]interface{}), nil
 }
 
-func (v *Validator) IsInputValid(result map[string]interface{}) bool {
-	return result["inputvalid"].(bool)
+func (v *Validator) IsValid(result map[string]interface{}) bool {
+	return result["valid"].(bool)
 }
 
-func (v *Validator) IsOutputValid(result map[string]interface{}) bool {
-	return result["outputvalid"].(bool)
-}
-
-func (v *Validator) GetOutputZones(result map[string]interface{}) []string {
-	res := result["result"].([]interface{})[0]
-	zones := res.(map[string]interface{})["output"].(map[string]interface{})["zones"].([]interface{})
-	zonesList := make([]string, len(zones))
-	for i, zone := range zones {
-		zonesList[i] = zone.(string)
+func (v *Validator) GetRequiredZones(result map[string]interface{}) []string {
+	zonesList := []string{}
+	for _, zone := range result["required_zones"].([]interface{}) {
+		zonesList = append(zonesList, zone.(string))
 	}
 	return zonesList
+}
+
+func (v *Validator) GetFailures(result map[string]interface{}) []string {
+	failures, ok := result["failures"]
+	if !ok {
+		return []string{}
+	}
+
+	// Handle both array and set cases (sets come back as arrays from OPA)
+	failuresSlice, ok := failures.([]interface{})
+	if !ok {
+		// Handle the case where it might be a single value
+		if failureStr, ok := failures.(string); ok {
+			return []string{failureStr}
+		}
+		return []string{}
+	}
+
+	failuresList := make([]string, 0, len(failuresSlice))
+	for _, failure := range failuresSlice {
+		if failureStr, ok := failure.(string); ok {
+			failuresList = append(failuresList, failureStr)
+		}
+	}
+	return failuresList
 }

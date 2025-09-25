@@ -58,7 +58,7 @@ func (s *ServiceHandler) CreateApplication(ctx context.Context, request server.C
 	app, err := s.ps.CreateApplication(ctx, request.Body)
 	if err != nil {
 		logger.Error("Failed to create Application: ", "error", err)
-		return server.CreateApplication400JSONResponse{}, err
+		return server.CreateApplication400JSONResponse{Error: err.Error()}, err
 	}
 	logger.Info("Application created. ", "Application: ", app)
 	return server.CreateApplication201JSONResponse(*app), nil
