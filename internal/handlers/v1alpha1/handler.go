@@ -36,6 +36,20 @@ func (s *ServiceHandler) GetApplications(ctx context.Context, request server.Get
 	return server.GetApplications200JSONResponse(mappers.ApplicationListToAPI(applications)), nil
 }
 
+// (DELETE /applications/{id})
+func (s *ServiceHandler) DeleteApplication(ctx context.Context, request server.DeleteApplicationRequestObject) (server.DeleteApplicationResponseObject, error) {
+	logger := zap.S().Named("placement_service")
+	logger.Info("Deleting Application. ", "Application: ", request)
+
+	app, err := s.ps.DeleteApplication(ctx, request.Id)
+	if err != nil {
+		logger.Error("Failed to delete Application: ", "error", err)
+		return server.DeleteApplication400JSONResponse{}, nil
+	}
+	logger.Info("Application deleted. ", "Application: ", request.Id)
+	return server.DeleteApplication200JSONResponse(*app), nil
+}
+
 // (POST /applications)
 func (s *ServiceHandler) CreateApplication(ctx context.Context, request server.CreateApplicationRequestObject) (server.CreateApplicationResponseObject, error) {
 	logger := zap.S().Named("placement_service")

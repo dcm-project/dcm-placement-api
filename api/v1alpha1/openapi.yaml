@@ -17,7 +17,6 @@ paths:
       responses:
         '200':
           description: OK
-
   /applications:
     post:
       summary: Create an application
@@ -69,6 +68,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
+  /applications/{id}:
+    delete:
+      summary: Delete an application
+      operationId: deleteApplication
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 
 components:
   schemas:

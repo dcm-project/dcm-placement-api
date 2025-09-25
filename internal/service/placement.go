@@ -7,6 +7,7 @@ import (
 	"github.com/dcm-project/dcm-placement-api/internal/api/server"
 	"github.com/dcm-project/dcm-placement-api/internal/catalog"
 	"github.com/dcm-project/dcm-placement-api/internal/deploy"
+	"github.com/dcm-project/dcm-placement-api/internal/handlers/v1alpha1/mappers"
 	"github.com/dcm-project/dcm-placement-api/internal/opa"
 	"github.com/dcm-project/dcm-placement-api/internal/store"
 	"github.com/dcm-project/dcm-placement-api/internal/store/model"
@@ -80,4 +81,29 @@ func (s *PlacementService) CreateApplication(ctx context.Context, request *serve
 		Tier:    &tier,
 		Id:      &app.ID,
 	}, nil
+}
+
+func (s *PlacementService) DeleteApplication(ctx context.Context, id uuid.UUID) (*server.Application, error) {
+	logger := zap.S().Named("placement_service:delete_app")
+	app, err := s.store.Application().Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Delete VMs from zones
+	for _, zone := range app.Zones {
+		logger.Info("Removing service from Zone: ", "Zone: ", zone)
+		err = s.deploy.DeleteVM(ctx, fmt.Sprintf("%s-%s", app.Name, id), zone)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Delete app from database
+	err = s.store.Application().Delete(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return mappers.ApplicationToAPI(*app), nil
 }
