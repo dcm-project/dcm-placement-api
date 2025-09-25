@@ -24,46 +24,36 @@ func NewPlacementService(store store.Store, opa *opa.Validator, deploy *deploy.D
 	return &PlacementService{store: store, opa: opa, deploy: deploy}
 }
 
-func (s *PlacementService) CreateApplication(ctx context.Context, request *server.CreateApplicationJSONRequestBody) error {
+func (s *PlacementService) CreateApplication(ctx context.Context, request *server.CreateApplicationJSONRequestBody) (*server.Application, error) {
 	logger := zap.S().Named("placement_service:create_app")
 
-	// Handle tier field with default value
-	tier := "tier1"
+	// OPA validation:
+	tier := 2
 	if request.Tier != nil {
 		tier = *request.Tier
 	}
-
-	// OPA validation:
-	result, err := s.opa.EvalPolicy(ctx, tier, map[string]string{
+	logger.Info("Evaluating policy: ", "Tier: ", fmt.Sprintf("%d", tier))
+	result, err := s.opa.EvalPolicy(ctx, fmt.Sprintf("tier%d", tier), map[string]string{
 		"name": request.Name,
-		"tier": "1",
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	logger.Info("OPA validation result", "Result", result)
+	logger.Info("OPA validation result: ", "Result: ", result)
 
 	if !s.opa.IsInputValid(result) {
-		logger.Warn("Invalid input", "Input", request)
+		//logger.Warn("Invalid input: ", "Input: ", request)
 	}
 
 	if !s.opa.IsOutputValid(result) {
-		return fmt.Errorf("invalid output")
+		return nil, fmt.Errorf("invalid output")
 	}
 
 	zones := s.opa.GetOutputZones(result)
-	for _, zone := range zones {
-		logger.Info("Created Application in Zone", "Zone", zone)
-		vm := catalog.GetCatalogVm(request.Service)
-		err = s.deploy.DeployVM(ctx, request.Name, vm, zone)
-		if err != nil {
-			return err
-		}
-	}
 
 	// Store in database post validation
-	_, err = s.store.Application().Create(ctx, model.Application{
+	app, err := s.store.Application().Create(ctx, model.Application{
 		ID:      uuid.New(),
 		Name:    request.Name,
 		Service: string(request.Service),
@@ -71,8 +61,23 @@ func (s *PlacementService) CreateApplication(ctx context.Context, request *serve
 		Tier:    tier,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	// Deploy VMs
+	for _, zone := range zones {
+		logger.Info("Created service in Zone: ", "Zone: ", zone)
+		vm := catalog.GetCatalogVm(request.Service)
+		err = s.deploy.DeployVM(ctx, fmt.Sprintf("%s-%s", request.Name, app.ID.String()), vm, zone)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &server.Application{
+		Name:    request.Name,
+		Service: request.Service,
+		Tier:    &tier,
+		Id:      &app.ID,
+	}, nil
 }

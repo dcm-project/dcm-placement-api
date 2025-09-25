@@ -39,16 +39,13 @@ func (s *ServiceHandler) GetApplications(ctx context.Context, request server.Get
 // (POST /applications)
 func (s *ServiceHandler) CreateApplication(ctx context.Context, request server.CreateApplicationRequestObject) (server.CreateApplicationResponseObject, error) {
 	logger := zap.S().Named("placement_service")
-	logger.Info("Creating Application", "Application", request)
+	logger.Info("Creating Application. ", "Application: ", request)
 
-	err := s.ps.CreateApplication(ctx, request.Body)
+	app, err := s.ps.CreateApplication(ctx, request.Body)
 	if err != nil {
 		logger.Error("Failed to create Application: ", "error", err)
 		return server.CreateApplication400JSONResponse{}, err
 	}
-	logger.Info("Application created", "Application", request)
-	return server.CreateApplication201JSONResponse{
-		Name:    request.Body.Name,
-		Service: request.Body.Service,
-	}, nil
+	logger.Info("Application created. ", "Application: ", app)
+	return server.CreateApplication201JSONResponse(*app), nil
 }
