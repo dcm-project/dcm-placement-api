@@ -24,6 +24,17 @@ func NewDeployService(client kubecli.KubevirtClient) *DeployService {
 	}
 }
 
+func (s *DeployService) DeleteVM(ctx context.Context, name string, namespace string) error {
+	logger := zap.S().Named("delete_vm")
+	logger.Info("Starting deletion for Virtual Machine")
+	err := s.client.VirtualMachine(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to delete VirtualMachine: %w", err)
+	}
+	logger.Info("Virtual Machine deleted successfully")
+	return nil
+}
+
 func (s *DeployService) DeployVM(ctx context.Context, name string, vm *catalog.CatalogVm, namespace string) error {
 	logger := zap.S().Named("deploy_vm")
 	logger.Info("Starting deployment for Virtual Machine")
