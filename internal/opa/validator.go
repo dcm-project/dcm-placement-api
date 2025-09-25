@@ -18,8 +18,10 @@ func NewValidator(server string) *Validator {
 
 func (v *Validator) EvalTierPolicy(ctx context.Context, tier int, appName string, zones *[]string) (map[string]interface{}, error) {
 	input := map[string]interface{}{
-		"name":  appName,
-		"zones": zones,
+		"name": appName,
+	}
+	if zones != nil {
+		input["zones"] = zones
 	}
 	return v.evalPolicy(ctx, tier, input)
 }
