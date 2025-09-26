@@ -16,13 +16,15 @@ import (
 )
 
 type PlacementService struct {
-	store  store.Store
-	opa    *opa.Validator
-	deploy *deploy.DeployService
+	store            store.Store
+	opa              *opa.Validator
+	deploy           *deploy.DeployService
+	containerService *deploy.ContainerService
 }
 
-func NewPlacementService(store store.Store, opa *opa.Validator, deploy *deploy.DeployService) *PlacementService {
-	return &PlacementService{store: store, opa: opa, deploy: deploy}
+func NewPlacementService(store store.Store, opa *opa.Validator,
+	deploy *deploy.DeployService, containerService *deploy.ContainerService) *PlacementService {
+	return &PlacementService{store: store, opa: opa, deploy: deploy, containerService: containerService}
 }
 
 func (s *PlacementService) CreateApplication(ctx context.Context, request *server.CreateApplicationJSONRequestBody) (*server.Application, error) {
@@ -49,26 +51,49 @@ func (s *PlacementService) CreateApplication(ctx context.Context, request *serve
 		return nil, fmt.Errorf("input validation failed")
 	}
 
+	serviceType := request.Service
+
 	// Store in database post validation
 	zones := s.opa.GetRequiredZones(result)
-	app, err := s.store.Application().Create(ctx, model.Application{
+	appModel := model.Application{
 		ID:      uuid.New(),
 		Name:    request.Name,
 		Service: string(request.Service),
 		Zones:   zones,
 		Tier:    tier,
-	})
+	}
+	if serviceType == "container" {
+		containerImage := request.ContainerImage
+		if containerImage == nil || *containerImage == "" {
+			return nil, fmt.Errorf("containerImage field must be defined")
+		}
+		appModel.ContainerImage = *containerImage
+	}
+
+	app, err := s.store.Application().Create(ctx, appModel)
 	if err != nil {
 		return nil, err
 	}
 
+	appName := fmt.Sprintf("%s-%s", request.Name, app.ID.String())
 	// Deploy VMs
 	for _, zone := range zones {
 		logger.Info("Created service in Zone: ", "Zone: ", zone)
-		vm := catalog.GetCatalogVm(request.Service)
-		err = s.deploy.DeployVM(ctx, fmt.Sprintf("%s-%s", request.Name, app.ID.String()), vm, zone)
-		if err != nil {
-			return nil, err
+		if serviceType == "webserver" {
+			vm := catalog.GetCatalogVm(request.Service)
+			err = s.deploy.DeployVM(ctx, appName, vm, zone)
+			if err != nil {
+				return nil, err
+			}
+		}
+		// Deploy container application
+		if serviceType == "container" {
+			containerApp := catalog.GetContainerApp()
+			containerApp.Image = *request.ContainerImage
+			err = s.containerService.HandleContainerDeployment(ctx, containerApp, appName, zone)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 

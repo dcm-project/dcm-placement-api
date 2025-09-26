@@ -123,6 +123,7 @@ components:
           description: Service of the application
           enum:
             - "webserver"
+            - "container"
         zones:
           type: array
           items:
@@ -133,6 +134,10 @@ components:
           type: integer
           description: Policy Tier of the application
           default: 2
+        containerImage:
+          type: string
+          description: Image for container deployment
+          example: "nginx:latest"
 
     ApplicationList:
       type: array

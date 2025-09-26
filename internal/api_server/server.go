@@ -8,6 +8,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	api "github.com/dcm-project/dcm-placement-api/api/v1alpha1"
@@ -24,6 +26,8 @@ import (
 	"github.com/spf13/pflag"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"go.uber.org/zap"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"kubevirt.io/client-go/kubecli"
 )
 
@@ -96,6 +100,10 @@ func (s *Server) Run(ctx context.Context) error {
 	if err != nil {
 		log.Fatalf("cannot obtain KubeVirt client: %v\n", err)
 	}
+	kubeClientset, err := s.getKubeClient()
+	if err != nil {
+		log.Fatalf("cannot obtain Kube client: %v\n", err)
+	}
 
 	h := handlers.NewServiceHandler(
 		s.store,
@@ -103,6 +111,7 @@ func (s *Server) Run(ctx context.Context) error {
 			s.store,
 			opa.NewValidator(s.cfg.Service.OpaServer),
 			deploy.NewDeployService(virtClient),
+			deploy.NewContainerService(kubeClientset),
 		),
 	)
 
@@ -130,4 +139,13 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (s *Server) getKubeClient() (*kubernetes.Clientset, error) {
+	kubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
+	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+	return kubernetes.NewForConfig(restConfig)
 }
