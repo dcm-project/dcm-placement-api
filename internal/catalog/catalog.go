@@ -21,3 +21,16 @@ func GetCatalogVm(serviceName server.ApplicationService) *CatalogVm {
 
 	return nil
 }
+
+type ContainerApp struct {
+	Image   string
+	Port    int
+	Replica int32
+}
+
+func GetContainerApp() *ContainerApp {
+	return &ContainerApp{
+		Port:    80,
+		Replica: int32(2), // should be determined by tier
+	}
+}
