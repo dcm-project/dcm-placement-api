@@ -8,12 +8,11 @@ import (
 
 type Application struct {
 	gorm.Model
-	ID             uuid.UUID      `gorm:"primaryKey;"`
-	Name           string         `gorm:"name;not null"`
-	Service        string         `gorm:"service;not null"`
-	Zones          pq.StringArray `gorm:"type:text[]"`
-	Tier           int            `gorm:"tier;not null"`
-	ContainerImage string
+	ID      uuid.UUID      `gorm:"primaryKey;"`
+	Name    string         `gorm:"name;not null"`
+	Service string         `gorm:"service;not null"`
+	Zones   pq.StringArray `gorm:"type:text[]"`
+	Tier    int            `gorm:"tier;not null"`
 }
 
 type ApplicationList []Application

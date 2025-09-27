@@ -129,15 +129,11 @@ components:
           items:
             type: string
           description: Zones of the application
-          example: ["us-east-1", "us-east-2"]
+          example: ["us-west-1", "us-west-2"]
         tier:
           type: integer
           description: Policy Tier of the application
           default: 2
-        containerImage:
-          type: string
-          description: Image for container deployment
-          example: "nginx:latest"
 
     ApplicationList:
       type: array

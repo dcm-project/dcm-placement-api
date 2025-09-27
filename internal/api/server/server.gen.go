@@ -23,9 +23,6 @@ const (
 
 // Application defines model for Application.
 type Application struct {
-	// ContainerImage Image for container deployment
-	ContainerImage *string `json:"containerImage,omitempty"`
-
 	// Id ID of the application
 	Id *openapi_types.UUID `json:"id,omitempty"`
 
