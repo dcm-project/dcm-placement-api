@@ -62,13 +62,6 @@ func (s *PlacementService) CreateApplication(ctx context.Context, request *serve
 		Zones:   zones,
 		Tier:    tier,
 	}
-	if serviceType == "container" {
-		containerImage := request.ContainerImage
-		if containerImage == nil || *containerImage == "" {
-			return nil, fmt.Errorf("containerImage field must be defined")
-		}
-		appModel.ContainerImage = *containerImage
-	}
 
 	app, err := s.store.Application().Create(ctx, appModel)
 	if err != nil {
@@ -89,7 +82,6 @@ func (s *PlacementService) CreateApplication(ctx context.Context, request *serve
 		// Deploy container application
 		if serviceType == "container" {
 			containerApp := catalog.GetContainerApp()
-			containerApp.Image = *request.ContainerImage
 			err = s.containerService.HandleContainerDeployment(ctx, containerApp, appName, zone)
 			if err != nil {
 				return nil, err

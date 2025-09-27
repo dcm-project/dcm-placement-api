@@ -30,7 +30,8 @@ type ContainerApp struct {
 
 func GetContainerApp() *ContainerApp {
 	return &ContainerApp{
+		Image:   "nginx:latest",
 		Port:    80,
-		Replica: int32(2), // should be determined by tier
+		Replica: int32(2),
 	}
 }
