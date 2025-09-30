@@ -44,5 +44,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
 
+      - name: Install Spectral
+        run: npm i @stoplight/spectral-cli -g
+
       - name: Check that OpenAPI conforms to AEP guidelines
         run: make aep
