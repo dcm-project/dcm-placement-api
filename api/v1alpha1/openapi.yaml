@@ -1,6 +1,8 @@
 openapi: 3.0.0
 info:
-  title: Virtual Machine Placement API
+  contact: {}
+  description: DCM Placement API
+  title: Placement API
   version: v1alpha1
   license:
     name: Apache 2.0
@@ -13,7 +15,8 @@ paths:
   /health:
     get:
       summary: Health check
-      operationId: health
+      operationId: ListHealth
+      description: Health check for DCM Placement API
       responses:
         '200':
           description: OK
@@ -21,6 +24,15 @@ paths:
     post:
       summary: Create an application
       operationId: createApplication
+      description: Create a DCM application
+      parameters:
+        - name: id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional ID for the application
+          example: "123e4567-e89b-12d3-a456-426614174000"
       requestBody:
         required: true
         content:
@@ -33,7 +45,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Application'
+                $ref: '#/components/schemas/ApplicationResponse'
         '400':
           description: Bad request
           content:
@@ -48,7 +60,8 @@ paths:
                 $ref: '#/components/schemas/Error'
     get:
       summary: Get all applications
-      operationId: getApplications
+      operationId: ListApplications
+      description: List all DCM Applications
       responses:
         '200':
           description: OK
@@ -73,6 +86,7 @@ paths:
     delete:
       summary: Delete an application
       operationId: deleteApplication
+      description: Delete a DCM application based on unique ID
       parameters:
         - name: id
           in: path
@@ -81,12 +95,12 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: OK
+        '204':
+          description: No Content
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Application'
+                $ref: '#/components/schemas/ApplicationResponse'
         '400':
           description: Bad request
           content:
@@ -105,15 +119,11 @@ components:
   schemas:
     Application:
       type: object
+      x-aep-resource: true
       required:
         - name
         - service
       properties:
-        id:
-          type: string
-          description: ID of the application
-          example: "123e4567-e89b-12d3-a456-426614174000"
-          format: uuid
         name:
           type: string
           description: Name of the application
@@ -135,10 +145,45 @@ components:
           description: Policy Tier of the application
           default: 2
 
+    ApplicationResponse:
+      type: object
+      x-aep-resource: true
+      properties:
+        id:
+          type: string
+          description: ID of the application
+          example: "123e4567-e89b-12d3-a456-426614174000"
+          format: uuid
+        name:
+          type: string
+          description: Name of the application
+          example: "app-server-01"
+        service:
+          type: string
+          description: Service of the application
+        zones:
+          type: array
+          items:
+            type: string
+          description: Zones of the application
+          example: ["us-west-1", "us-west-2"]
+        tier:
+          type: integer
+          description: Policy Tier of the application
+
     ApplicationList:
-      type: array
-      items:
-        $ref: '#/components/schemas/Application'
+      type: object
+      required:
+        - applications
+      properties:
+        applications:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApplicationResponse'
+        next_page_token:
+          type: string
+          description: Token for retrieving the next page of results
+          example: "eyJpZCI6IjEyM2U0NTY3LWU4OWItMTJkMy1hNDU2LTQyNjYxNDE3NDAwMCJ9"
 
     Error:
       required:

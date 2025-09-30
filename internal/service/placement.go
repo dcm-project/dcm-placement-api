@@ -27,7 +27,7 @@ func NewPlacementService(store store.Store, opa *opa.Validator,
 	return &PlacementService{store: store, opa: opa, deploy: deploy, containerService: containerService}
 }
 
-func (s *PlacementService) CreateApplication(ctx context.Context, request *server.CreateApplicationJSONRequestBody) (*server.Application, error) {
+func (s *PlacementService) CreateApplication(ctx context.Context, request *server.CreateApplicationJSONRequestBody, appID string) (*server.ApplicationResponse, error) {
 	logger := zap.S().Named("placement_service:create_app")
 
 	// OPA validation:
@@ -52,11 +52,17 @@ func (s *PlacementService) CreateApplication(ctx context.Context, request *serve
 	}
 
 	serviceType := request.Service
+	var applicationID uuid.UUID
+	if appID != "" {
+		applicationID, _ = uuid.Parse(appID)
+	} else {
+		applicationID = uuid.New()
+	}
 
 	// Store in database post validation
 	zones := s.opa.GetRequiredZones(result)
 	appModel := model.Application{
-		ID:      uuid.New(),
+		ID:      applicationID,
 		Name:    request.Name,
 		Service: string(request.Service),
 		Zones:   zones,
@@ -89,15 +95,16 @@ func (s *PlacementService) CreateApplication(ctx context.Context, request *serve
 		}
 	}
 
-	return &server.Application{
-		Name:    request.Name,
-		Service: request.Service,
+	appService := string(request.Service)
+	return &server.ApplicationResponse{
+		Name:    &request.Name,
+		Service: &appService,
 		Tier:    &tier,
 		Id:      &app.ID,
 	}, nil
 }
 
-func (s *PlacementService) DeleteApplication(ctx context.Context, id uuid.UUID) (*server.Application, error) {
+func (s *PlacementService) DeleteApplication(ctx context.Context, id uuid.UUID) (*server.ApplicationResponse, error) {
 	logger := zap.S().Named("placement_service:delete_app")
 	app, err := s.store.Application().Get(ctx, id)
 	if err != nil {

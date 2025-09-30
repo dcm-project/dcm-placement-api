@@ -15,9 +15,6 @@ const (
 
 // Application defines model for Application.
 type Application struct {
-	// Id ID of the application
-	Id *openapi_types.UUID `json:"id,omitempty"`
-
 	// Name Name of the application
 	Name string `json:"name"`
 
@@ -35,7 +32,30 @@ type Application struct {
 type ApplicationService string
 
 // ApplicationList defines model for ApplicationList.
-type ApplicationList = []Application
+type ApplicationList struct {
+	Applications []ApplicationResponse `json:"applications"`
+
+	// NextPageToken Token for retrieving the next page of results
+	NextPageToken *string `json:"next_page_token,omitempty"`
+}
+
+// ApplicationResponse defines model for ApplicationResponse.
+type ApplicationResponse struct {
+	// Id ID of the application
+	Id *openapi_types.UUID `json:"id,omitempty"`
+
+	// Name Name of the application
+	Name *string `json:"name,omitempty"`
+
+	// Service Service of the application
+	Service *string `json:"service,omitempty"`
+
+	// Tier Policy Tier of the application
+	Tier *int `json:"tier,omitempty"`
+
+	// Zones Zones of the application
+	Zones *[]string `json:"zones,omitempty"`
+}
 
 // Error defines model for Error.
 type Error struct {
@@ -44,6 +64,12 @@ type Error struct {
 
 	// Error Error message
 	Error string `json:"error"`
+}
+
+// CreateApplicationParams defines parameters for CreateApplication.
+type CreateApplicationParams struct {
+	// Id Optional ID for the application
+	Id *string `form:"id,omitempty" json:"id,omitempty"`
 }
 
 // CreateApplicationJSONRequestBody defines body for CreateApplication for application/json ContentType.

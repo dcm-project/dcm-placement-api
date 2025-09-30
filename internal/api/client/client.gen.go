@@ -91,23 +91,23 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
-	// GetApplications request
-	GetApplications(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListApplications request
+	ListApplications(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateApplicationWithBody request with any body
-	CreateApplicationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateApplicationWithBody(ctx context.Context, params *CreateApplicationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	CreateApplication(ctx context.Context, body CreateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateApplication(ctx context.Context, params *CreateApplicationParams, body CreateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteApplication request
 	DeleteApplication(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// Health request
-	Health(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListHealth request
+	ListHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-func (c *Client) GetApplications(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetApplicationsRequest(c.Server)
+func (c *Client) ListApplications(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListApplicationsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -118,8 +118,8 @@ func (c *Client) GetApplications(ctx context.Context, reqEditors ...RequestEdito
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateApplicationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateApplicationRequestWithBody(c.Server, contentType, body)
+func (c *Client) CreateApplicationWithBody(ctx context.Context, params *CreateApplicationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateApplicationRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -130,8 +130,8 @@ func (c *Client) CreateApplicationWithBody(ctx context.Context, contentType stri
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateApplication(ctx context.Context, body CreateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateApplicationRequest(c.Server, body)
+func (c *Client) CreateApplication(ctx context.Context, params *CreateApplicationParams, body CreateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateApplicationRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -154,8 +154,8 @@ func (c *Client) DeleteApplication(ctx context.Context, id openapi_types.UUID, r
 	return c.Client.Do(req)
 }
 
-func (c *Client) Health(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewHealthRequest(c.Server)
+func (c *Client) ListHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListHealthRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -166,8 +166,8 @@ func (c *Client) Health(ctx context.Context, reqEditors ...RequestEditorFn) (*ht
 	return c.Client.Do(req)
 }
 
-// NewGetApplicationsRequest generates requests for GetApplications
-func NewGetApplicationsRequest(server string) (*http.Request, error) {
+// NewListApplicationsRequest generates requests for ListApplications
+func NewListApplicationsRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -194,18 +194,18 @@ func NewGetApplicationsRequest(server string) (*http.Request, error) {
 }
 
 // NewCreateApplicationRequest calls the generic CreateApplication builder with application/json body
-func NewCreateApplicationRequest(server string, body CreateApplicationJSONRequestBody) (*http.Request, error) {
+func NewCreateApplicationRequest(server string, params *CreateApplicationParams, body CreateApplicationJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewCreateApplicationRequestWithBody(server, "application/json", bodyReader)
+	return NewCreateApplicationRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewCreateApplicationRequestWithBody generates requests for CreateApplication with any type of body
-func NewCreateApplicationRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewCreateApplicationRequestWithBody(server string, params *CreateApplicationParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -221,6 +221,28 @@ func NewCreateApplicationRequestWithBody(server string, contentType string, body
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Id != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "id", runtime.ParamLocationQuery, *params.Id); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("POST", queryURL.String(), body)
@@ -267,8 +289,8 @@ func NewDeleteApplicationRequest(server string, id openapi_types.UUID) (*http.Re
 	return req, nil
 }
 
-// NewHealthRequest generates requests for Health
-func NewHealthRequest(server string) (*http.Request, error) {
+// NewListHealthRequest generates requests for ListHealth
+func NewListHealthRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -337,22 +359,22 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
-	// GetApplicationsWithResponse request
-	GetApplicationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApplicationsResponse, error)
+	// ListApplicationsWithResponse request
+	ListApplicationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListApplicationsResponse, error)
 
 	// CreateApplicationWithBodyWithResponse request with any body
-	CreateApplicationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApplicationResponse, error)
+	CreateApplicationWithBodyWithResponse(ctx context.Context, params *CreateApplicationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApplicationResponse, error)
 
-	CreateApplicationWithResponse(ctx context.Context, body CreateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApplicationResponse, error)
+	CreateApplicationWithResponse(ctx context.Context, params *CreateApplicationParams, body CreateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApplicationResponse, error)
 
 	// DeleteApplicationWithResponse request
 	DeleteApplicationWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteApplicationResponse, error)
 
-	// HealthWithResponse request
-	HealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthResponse, error)
+	// ListHealthWithResponse request
+	ListHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListHealthResponse, error)
 }
 
-type GetApplicationsResponse struct {
+type ListApplicationsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ApplicationList
@@ -361,7 +383,7 @@ type GetApplicationsResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r GetApplicationsResponse) Status() string {
+func (r ListApplicationsResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -369,7 +391,7 @@ func (r GetApplicationsResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetApplicationsResponse) StatusCode() int {
+func (r ListApplicationsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -379,7 +401,7 @@ func (r GetApplicationsResponse) StatusCode() int {
 type CreateApplicationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *Application
+	JSON201      *ApplicationResponse
 	JSON400      *Error
 	JSON500      *Error
 }
@@ -403,7 +425,7 @@ func (r CreateApplicationResponse) StatusCode() int {
 type DeleteApplicationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *Application
+	JSON204      *ApplicationResponse
 	JSON400      *Error
 	JSON500      *Error
 }
@@ -424,13 +446,13 @@ func (r DeleteApplicationResponse) StatusCode() int {
 	return 0
 }
 
-type HealthResponse struct {
+type ListHealthResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 }
 
 // Status returns HTTPResponse.Status
-func (r HealthResponse) Status() string {
+func (r ListHealthResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -438,33 +460,33 @@ func (r HealthResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r HealthResponse) StatusCode() int {
+func (r ListHealthResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-// GetApplicationsWithResponse request returning *GetApplicationsResponse
-func (c *ClientWithResponses) GetApplicationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApplicationsResponse, error) {
-	rsp, err := c.GetApplications(ctx, reqEditors...)
+// ListApplicationsWithResponse request returning *ListApplicationsResponse
+func (c *ClientWithResponses) ListApplicationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListApplicationsResponse, error) {
+	rsp, err := c.ListApplications(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetApplicationsResponse(rsp)
+	return ParseListApplicationsResponse(rsp)
 }
 
 // CreateApplicationWithBodyWithResponse request with arbitrary body returning *CreateApplicationResponse
-func (c *ClientWithResponses) CreateApplicationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApplicationResponse, error) {
-	rsp, err := c.CreateApplicationWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) CreateApplicationWithBodyWithResponse(ctx context.Context, params *CreateApplicationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApplicationResponse, error) {
+	rsp, err := c.CreateApplicationWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseCreateApplicationResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateApplicationWithResponse(ctx context.Context, body CreateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApplicationResponse, error) {
-	rsp, err := c.CreateApplication(ctx, body, reqEditors...)
+func (c *ClientWithResponses) CreateApplicationWithResponse(ctx context.Context, params *CreateApplicationParams, body CreateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApplicationResponse, error) {
+	rsp, err := c.CreateApplication(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -480,24 +502,24 @@ func (c *ClientWithResponses) DeleteApplicationWithResponse(ctx context.Context,
 	return ParseDeleteApplicationResponse(rsp)
 }
 
-// HealthWithResponse request returning *HealthResponse
-func (c *ClientWithResponses) HealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthResponse, error) {
-	rsp, err := c.Health(ctx, reqEditors...)
+// ListHealthWithResponse request returning *ListHealthResponse
+func (c *ClientWithResponses) ListHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListHealthResponse, error) {
+	rsp, err := c.ListHealth(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseHealthResponse(rsp)
+	return ParseListHealthResponse(rsp)
 }
 
-// ParseGetApplicationsResponse parses an HTTP response from a GetApplicationsWithResponse call
-func ParseGetApplicationsResponse(rsp *http.Response) (*GetApplicationsResponse, error) {
+// ParseListApplicationsResponse parses an HTTP response from a ListApplicationsWithResponse call
+func ParseListApplicationsResponse(rsp *http.Response) (*ListApplicationsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetApplicationsResponse{
+	response := &ListApplicationsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -544,7 +566,7 @@ func ParseCreateApplicationResponse(rsp *http.Response) (*CreateApplicationRespo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest Application
+		var dest ApplicationResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -583,12 +605,12 @@ func ParseDeleteApplicationResponse(rsp *http.Response) (*DeleteApplicationRespo
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Application
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 204:
+		var dest ApplicationResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON200 = &dest
+		response.JSON204 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest Error
@@ -609,15 +631,15 @@ func ParseDeleteApplicationResponse(rsp *http.Response) (*DeleteApplicationRespo
 	return response, nil
 }
 
-// ParseHealthResponse parses an HTTP response from a HealthWithResponse call
-func ParseHealthResponse(rsp *http.Response) (*HealthResponse, error) {
+// ParseListHealthResponse parses an HTTP response from a ListHealthWithResponse call
+func ParseListHealthResponse(rsp *http.Response) (*ListHealthResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &HealthResponse{
+	response := &ListHealthResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
