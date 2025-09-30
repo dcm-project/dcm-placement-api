@@ -5,11 +5,11 @@ import (
 	"github.com/dcm-project/dcm-placement-api/internal/store/model"
 )
 
-func ApplicationToAPI(dbApp model.Application) *server.Application {
+func ApplicationToAPI(dbApp model.Application) *server.ApplicationResponse {
 	zones := []string(dbApp.Zones)
-	return &server.Application{
-		Name:    dbApp.Name,
-		Service: server.ApplicationService(dbApp.Service),
+	return &server.ApplicationResponse{
+		Name:    &dbApp.Name,
+		Service: &dbApp.Service,
 		Tier:    &dbApp.Tier,
 		Zones:   &zones,
 		Id:      &dbApp.ID,
@@ -17,9 +17,9 @@ func ApplicationToAPI(dbApp model.Application) *server.Application {
 }
 
 func ApplicationListToAPI(dbApps model.ApplicationList) server.ApplicationList {
-	var apiApps server.ApplicationList
+	var apiApps []server.ApplicationResponse
 	for _, dbApp := range dbApps {
 		apiApps = append(apiApps, *ApplicationToAPI(dbApp))
 	}
-	return apiApps
+	return server.ApplicationList{Applications: apiApps}
 }

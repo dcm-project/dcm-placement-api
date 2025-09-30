@@ -23,9 +23,6 @@ const (
 
 // Application defines model for Application.
 type Application struct {
-	// Id ID of the application
-	Id *openapi_types.UUID `json:"id,omitempty"`
-
 	// Name Name of the application
 	Name string `json:"name"`
 
@@ -43,7 +40,30 @@ type Application struct {
 type ApplicationService string
 
 // ApplicationList defines model for ApplicationList.
-type ApplicationList = []Application
+type ApplicationList struct {
+	Applications []ApplicationResponse `json:"applications"`
+
+	// NextPageToken Token for retrieving the next page of results
+	NextPageToken *string `json:"next_page_token,omitempty"`
+}
+
+// ApplicationResponse defines model for ApplicationResponse.
+type ApplicationResponse struct {
+	// Id ID of the application
+	Id *openapi_types.UUID `json:"id,omitempty"`
+
+	// Name Name of the application
+	Name *string `json:"name,omitempty"`
+
+	// Service Service of the application
+	Service *string `json:"service,omitempty"`
+
+	// Tier Policy Tier of the application
+	Tier *int `json:"tier,omitempty"`
+
+	// Zones Zones of the application
+	Zones *[]string `json:"zones,omitempty"`
+}
 
 // Error defines model for Error.
 type Error struct {
@@ -54,6 +74,12 @@ type Error struct {
 	Error string `json:"error"`
 }
 
+// CreateApplicationParams defines parameters for CreateApplication.
+type CreateApplicationParams struct {
+	// Id Optional ID for the application
+	Id *string `form:"id,omitempty" json:"id,omitempty"`
+}
+
 // CreateApplicationJSONRequestBody defines body for CreateApplication for application/json ContentType.
 type CreateApplicationJSONRequestBody = Application
 
@@ -61,16 +87,16 @@ type CreateApplicationJSONRequestBody = Application
 type ServerInterface interface {
 	// Get all applications
 	// (GET /applications)
-	GetApplications(w http.ResponseWriter, r *http.Request)
+	ListApplications(w http.ResponseWriter, r *http.Request)
 	// Create an application
 	// (POST /applications)
-	CreateApplication(w http.ResponseWriter, r *http.Request)
+	CreateApplication(w http.ResponseWriter, r *http.Request, params CreateApplicationParams)
 	// Delete an application
 	// (DELETE /applications/{id})
 	DeleteApplication(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
 	// Health check
 	// (GET /health)
-	Health(w http.ResponseWriter, r *http.Request)
+	ListHealth(w http.ResponseWriter, r *http.Request)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -79,13 +105,13 @@ type Unimplemented struct{}
 
 // Get all applications
 // (GET /applications)
-func (_ Unimplemented) GetApplications(w http.ResponseWriter, r *http.Request) {
+func (_ Unimplemented) ListApplications(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Create an application
 // (POST /applications)
-func (_ Unimplemented) CreateApplication(w http.ResponseWriter, r *http.Request) {
+func (_ Unimplemented) CreateApplication(w http.ResponseWriter, r *http.Request, params CreateApplicationParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -97,7 +123,7 @@ func (_ Unimplemented) DeleteApplication(w http.ResponseWriter, r *http.Request,
 
 // Health check
 // (GET /health)
-func (_ Unimplemented) Health(w http.ResponseWriter, r *http.Request) {
+func (_ Unimplemented) ListHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -110,12 +136,12 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
-// GetApplications operation middleware
-func (siw *ServerInterfaceWrapper) GetApplications(w http.ResponseWriter, r *http.Request) {
+// ListApplications operation middleware
+func (siw *ServerInterfaceWrapper) ListApplications(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetApplications(w, r)
+		siw.Handler.ListApplications(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -129,8 +155,21 @@ func (siw *ServerInterfaceWrapper) GetApplications(w http.ResponseWriter, r *htt
 func (siw *ServerInterfaceWrapper) CreateApplication(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateApplicationParams
+
+	// ------------- Optional query parameter "id" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "id", r.URL.Query(), &params.Id)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateApplication(w, r)
+		siw.Handler.CreateApplication(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -166,12 +205,12 @@ func (siw *ServerInterfaceWrapper) DeleteApplication(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
-// Health operation middleware
-func (siw *ServerInterfaceWrapper) Health(w http.ResponseWriter, r *http.Request) {
+// ListHealth operation middleware
+func (siw *ServerInterfaceWrapper) ListHealth(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.Health(w, r)
+		siw.Handler.ListHealth(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -295,7 +334,7 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/applications", wrapper.GetApplications)
+		r.Get(options.BaseURL+"/applications", wrapper.ListApplications)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/applications", wrapper.CreateApplication)
@@ -304,40 +343,40 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Delete(options.BaseURL+"/applications/{id}", wrapper.DeleteApplication)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/health", wrapper.Health)
+		r.Get(options.BaseURL+"/health", wrapper.ListHealth)
 	})
 
 	return r
 }
 
-type GetApplicationsRequestObject struct {
+type ListApplicationsRequestObject struct {
 }
 
-type GetApplicationsResponseObject interface {
-	VisitGetApplicationsResponse(w http.ResponseWriter) error
+type ListApplicationsResponseObject interface {
+	VisitListApplicationsResponse(w http.ResponseWriter) error
 }
 
-type GetApplications200JSONResponse ApplicationList
+type ListApplications200JSONResponse ApplicationList
 
-func (response GetApplications200JSONResponse) VisitGetApplicationsResponse(w http.ResponseWriter) error {
+func (response ListApplications200JSONResponse) VisitListApplicationsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetApplications400JSONResponse Error
+type ListApplications400JSONResponse Error
 
-func (response GetApplications400JSONResponse) VisitGetApplicationsResponse(w http.ResponseWriter) error {
+func (response ListApplications400JSONResponse) VisitListApplicationsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetApplications500JSONResponse Error
+type ListApplications500JSONResponse Error
 
-func (response GetApplications500JSONResponse) VisitGetApplicationsResponse(w http.ResponseWriter) error {
+func (response ListApplications500JSONResponse) VisitListApplicationsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -345,14 +384,15 @@ func (response GetApplications500JSONResponse) VisitGetApplicationsResponse(w ht
 }
 
 type CreateApplicationRequestObject struct {
-	Body *CreateApplicationJSONRequestBody
+	Params CreateApplicationParams
+	Body   *CreateApplicationJSONRequestBody
 }
 
 type CreateApplicationResponseObject interface {
 	VisitCreateApplicationResponse(w http.ResponseWriter) error
 }
 
-type CreateApplication201JSONResponse Application
+type CreateApplication201JSONResponse ApplicationResponse
 
 func (response CreateApplication201JSONResponse) VisitCreateApplicationResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -387,11 +427,11 @@ type DeleteApplicationResponseObject interface {
 	VisitDeleteApplicationResponse(w http.ResponseWriter) error
 }
 
-type DeleteApplication200JSONResponse Application
+type DeleteApplication204JSONResponse ApplicationResponse
 
-func (response DeleteApplication200JSONResponse) VisitDeleteApplicationResponse(w http.ResponseWriter) error {
+func (response DeleteApplication204JSONResponse) VisitDeleteApplicationResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
+	w.WriteHeader(204)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -414,17 +454,17 @@ func (response DeleteApplication500JSONResponse) VisitDeleteApplicationResponse(
 	return json.NewEncoder(w).Encode(response)
 }
 
-type HealthRequestObject struct {
+type ListHealthRequestObject struct {
 }
 
-type HealthResponseObject interface {
-	VisitHealthResponse(w http.ResponseWriter) error
+type ListHealthResponseObject interface {
+	VisitListHealthResponse(w http.ResponseWriter) error
 }
 
-type Health200Response struct {
+type ListHealth200Response struct {
 }
 
-func (response Health200Response) VisitHealthResponse(w http.ResponseWriter) error {
+func (response ListHealth200Response) VisitListHealthResponse(w http.ResponseWriter) error {
 	w.WriteHeader(200)
 	return nil
 }
@@ -433,7 +473,7 @@ func (response Health200Response) VisitHealthResponse(w http.ResponseWriter) err
 type StrictServerInterface interface {
 	// Get all applications
 	// (GET /applications)
-	GetApplications(ctx context.Context, request GetApplicationsRequestObject) (GetApplicationsResponseObject, error)
+	ListApplications(ctx context.Context, request ListApplicationsRequestObject) (ListApplicationsResponseObject, error)
 	// Create an application
 	// (POST /applications)
 	CreateApplication(ctx context.Context, request CreateApplicationRequestObject) (CreateApplicationResponseObject, error)
@@ -442,7 +482,7 @@ type StrictServerInterface interface {
 	DeleteApplication(ctx context.Context, request DeleteApplicationRequestObject) (DeleteApplicationResponseObject, error)
 	// Health check
 	// (GET /health)
-	Health(ctx context.Context, request HealthRequestObject) (HealthResponseObject, error)
+	ListHealth(ctx context.Context, request ListHealthRequestObject) (ListHealthResponseObject, error)
 }
 
 type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
@@ -474,23 +514,23 @@ type strictHandler struct {
 	options     StrictHTTPServerOptions
 }
 
-// GetApplications operation middleware
-func (sh *strictHandler) GetApplications(w http.ResponseWriter, r *http.Request) {
-	var request GetApplicationsRequestObject
+// ListApplications operation middleware
+func (sh *strictHandler) ListApplications(w http.ResponseWriter, r *http.Request) {
+	var request ListApplicationsRequestObject
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetApplications(ctx, request.(GetApplicationsRequestObject))
+		return sh.ssi.ListApplications(ctx, request.(ListApplicationsRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetApplications")
+		handler = middleware(handler, "ListApplications")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetApplicationsResponseObject); ok {
-		if err := validResponse.VisitGetApplicationsResponse(w); err != nil {
+	} else if validResponse, ok := response.(ListApplicationsResponseObject); ok {
+		if err := validResponse.VisitListApplicationsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -499,8 +539,10 @@ func (sh *strictHandler) GetApplications(w http.ResponseWriter, r *http.Request)
 }
 
 // CreateApplication operation middleware
-func (sh *strictHandler) CreateApplication(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) CreateApplication(w http.ResponseWriter, r *http.Request, params CreateApplicationParams) {
 	var request CreateApplicationRequestObject
+
+	request.Params = params
 
 	var body CreateApplicationJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -555,23 +597,23 @@ func (sh *strictHandler) DeleteApplication(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-// Health operation middleware
-func (sh *strictHandler) Health(w http.ResponseWriter, r *http.Request) {
-	var request HealthRequestObject
+// ListHealth operation middleware
+func (sh *strictHandler) ListHealth(w http.ResponseWriter, r *http.Request) {
+	var request ListHealthRequestObject
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.Health(ctx, request.(HealthRequestObject))
+		return sh.ssi.ListHealth(ctx, request.(ListHealthRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "Health")
+		handler = middleware(handler, "ListHealth")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(HealthResponseObject); ok {
-		if err := validResponse.VisitHealthResponse(w); err != nil {
+	} else if validResponse, ok := response.(ListHealthResponseObject); ok {
+		if err := validResponse.VisitListHealthResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

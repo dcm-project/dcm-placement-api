@@ -11,6 +11,10 @@ build:
 opa:
 	podman run -v ${PWD}/policies:/policies:Z -p 8181:8181 docker.io/openpolicyagent/opa:latest run --server --addr=0.0.0.0:8181 --bundle /policies
 
+# Check AEP compliance
+aep:
+	spectral lint .spectral.yaml ./api/v1alpha1/openapi.yaml
+
 # Run the application
 run:
 	go run ./cmd/dcm-placement-api
