@@ -24,10 +24,12 @@ func NewDeployService(client kubecli.KubevirtClient) *DeployService {
 	}
 }
 
-func (s *DeployService) DeleteVM(ctx context.Context, name string, namespace string) error {
+func (s *DeployService) DeleteVM(ctx context.Context, id string, namespace string) error {
 	logger := zap.S().Named("delete_vm")
 	logger.Info("Starting deletion for Virtual Machine")
-	err := s.client.VirtualMachine(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	err := s.client.VirtualMachine(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("app-id=%s", id),
+	})
 	if err != nil {
 		return fmt.Errorf("failed to delete VirtualMachine: %w", err)
 	}
@@ -35,7 +37,7 @@ func (s *DeployService) DeleteVM(ctx context.Context, name string, namespace str
 	return nil
 }
 
-func (s *DeployService) DeployVM(ctx context.Context, name string, vm *catalog.CatalogVm, namespace string) error {
+func (s *DeployService) DeployVM(ctx context.Context, name string, vm *catalog.CatalogVm, namespace string, id string) error {
 	logger := zap.S().Named("deploy_vm")
 	logger.Info("Starting deployment for Virtual Machine")
 	// Create Namespace for the Virtual Machine
@@ -47,8 +49,11 @@ func (s *DeployService) DeployVM(ctx context.Context, name string, vm *catalog.C
 	memory := resource.MustParse(fmt.Sprintf("%dGi", vm.Ram))
 	virtualMachine := &kubevirtv1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			GenerateName: fmt.Sprintf("%s-", name),
+			Namespace:    namespace,
+			Labels: map[string]string{
+				"app-id": id,
+			},
 		},
 		Spec: kubevirtv1.VirtualMachineSpec{
 			RunStrategy: &[]kubevirtv1.VirtualMachineRunStrategy{kubevirtv1.RunStrategyRerunOnFailure}[0],

@@ -23,7 +23,7 @@ func NewContainerService(client kubernetes.Interface) *ContainerService {
 	}
 }
 
-func (c *ContainerService) HandleContainerDeployment(ctx context.Context, app *catalog.ContainerApp, name, namespace string) error {
+func (c *ContainerService) HandleContainerDeployment(ctx context.Context, app *catalog.ContainerApp, name, namespace string, id string) error {
 	logger := zap.S().Named("container_service:deployment_handler")
 	logger.Info("Starting deployment for Container")
 
@@ -33,12 +33,12 @@ func (c *ContainerService) HandleContainerDeployment(ctx context.Context, app *c
 	}
 
 	// Deploy container
-	if err := c.deployContainer(ctx, name, namespace, app); err != nil {
+	if err := c.deployContainer(ctx, name, namespace, app, id); err != nil {
 		return err
 	}
 
 	// Deploy service
-	err := c.deployContainerService(ctx, name, namespace, app)
+	err := c.deployContainerService(ctx, name, namespace, app, id)
 	if err != nil {
 		return err
 	}
@@ -67,13 +67,16 @@ func (c *ContainerService) checkOrCreateNamespace(ctx context.Context, namespace
 	return nil
 }
 
-func (c *ContainerService) deployContainer(ctx context.Context, name, namespace string, app *catalog.ContainerApp) error {
+func (c *ContainerService) deployContainer(ctx context.Context, name, namespace string, app *catalog.ContainerApp, id string) error {
 	logger := zap.S().Named("container_service:deploy_container")
 
 	// Create deployment object
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			GenerateName: fmt.Sprintf("%s-", name),
+			Labels: map[string]string{
+				"app-id": id,
+			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &app.Replica,
@@ -109,13 +112,16 @@ func (c *ContainerService) deployContainer(ctx context.Context, name, namespace 
 	return nil
 }
 
-func (c *ContainerService) deployContainerService(ctx context.Context, name, namespace string, app *catalog.ContainerApp) error {
+func (c *ContainerService) deployContainerService(ctx context.Context, name, namespace string, app *catalog.ContainerApp, id string) error {
 	logger := zap.S().Named("container_service:deploy_service")
 
 	// Create Service object
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("%s-service", name),
+			GenerateName: fmt.Sprintf("%s-service-", name),
+			Labels: map[string]string{
+				"app-id": id,
+			},
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{"service": name},
