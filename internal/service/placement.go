@@ -74,13 +74,12 @@ func (s *PlacementService) CreateApplication(ctx context.Context, request *serve
 		return nil, err
 	}
 
-	appName := fmt.Sprintf("%s-%s", request.Name, app.ID.String())
 	// Deploy VMs
 	for _, zone := range zones {
 		logger.Info("Created service in Zone: ", "Zone: ", zone)
 		if serviceType == "webserver" {
 			vm := catalog.GetCatalogVm(request.Service)
-			err = s.deploy.DeployVM(ctx, appName, vm, zone)
+			err = s.deploy.DeployVM(ctx, request.Name, vm, zone, app.ID.String())
 			if err != nil {
 				return nil, err
 			}
@@ -88,7 +87,7 @@ func (s *PlacementService) CreateApplication(ctx context.Context, request *serve
 		// Deploy container application
 		if serviceType == "container" {
 			containerApp := catalog.GetContainerApp()
-			err = s.containerService.HandleContainerDeployment(ctx, containerApp, appName, zone)
+			err = s.containerService.HandleContainerDeployment(ctx, containerApp, request.Name, zone, app.ID.String())
 			if err != nil {
 				return nil, err
 			}
@@ -114,7 +113,7 @@ func (s *PlacementService) DeleteApplication(ctx context.Context, id uuid.UUID) 
 	// Delete VMs from zones
 	for _, zone := range app.Zones {
 		logger.Info("Removing service from Zone: ", "Zone: ", zone)
-		err = s.deploy.DeleteVM(ctx, fmt.Sprintf("%s-%s", app.Name, id), zone)
+		err = s.deploy.DeleteVM(ctx, id.String(), zone)
 		if err != nil {
 			return nil, err
 		}
