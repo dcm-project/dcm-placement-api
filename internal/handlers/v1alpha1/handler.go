@@ -67,3 +67,17 @@ func (s *ServiceHandler) CreateApplication(ctx context.Context, request server.C
 	logger.Info("Application created. ", "Application: ", app)
 	return server.CreateApplication201JSONResponse(*app), nil
 }
+
+// (PUT /applications/{id})
+func (s *ServiceHandler) ApplyApplication(ctx context.Context, request server.ApplyApplicationRequestObject) (server.ApplyApplicationResponseObject, error) {
+	logger := zap.S().Named("placement_handler")
+	logger.Info("Updating Application. ", "Application: ", request)
+
+	app, err := s.ps.UpdateApplication(ctx, request.Id.String())
+	if err != nil {
+		logger.Error("Failed to update Application: ", "error", err)
+		return server.ApplyApplication400JSONResponse{Error: err.Error()}, nil
+	}
+	logger.Info("Application updated. ", "Application: ", app)
+	return server.ApplyApplication200JSONResponse(*app), nil
+}

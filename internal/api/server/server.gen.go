@@ -94,6 +94,9 @@ type ServerInterface interface {
 	// Delete an application
 	// (DELETE /applications/{id})
 	DeleteApplication(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// Update an application
+	// (PUT /applications/{id})
+	ApplyApplication(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
 	// Health check
 	// (GET /health)
 	ListHealth(w http.ResponseWriter, r *http.Request)
@@ -118,6 +121,12 @@ func (_ Unimplemented) CreateApplication(w http.ResponseWriter, r *http.Request,
 // Delete an application
 // (DELETE /applications/{id})
 func (_ Unimplemented) DeleteApplication(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update an application
+// (PUT /applications/{id})
+func (_ Unimplemented) ApplyApplication(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -196,6 +205,32 @@ func (siw *ServerInterfaceWrapper) DeleteApplication(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeleteApplication(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// ApplyApplication operation middleware
+func (siw *ServerInterfaceWrapper) ApplyApplication(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApplyApplication(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -343,6 +378,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Delete(options.BaseURL+"/applications/{id}", wrapper.DeleteApplication)
 	})
 	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/applications/{id}", wrapper.ApplyApplication)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/health", wrapper.ListHealth)
 	})
 
@@ -454,6 +492,41 @@ func (response DeleteApplication500JSONResponse) VisitDeleteApplicationResponse(
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ApplyApplicationRequestObject struct {
+	Id openapi_types.UUID `json:"id"`
+}
+
+type ApplyApplicationResponseObject interface {
+	VisitApplyApplicationResponse(w http.ResponseWriter) error
+}
+
+type ApplyApplication200JSONResponse ApplicationResponse
+
+func (response ApplyApplication200JSONResponse) VisitApplyApplicationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyApplication400JSONResponse Error
+
+func (response ApplyApplication400JSONResponse) VisitApplyApplicationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyApplication500JSONResponse Error
+
+func (response ApplyApplication500JSONResponse) VisitApplyApplicationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type ListHealthRequestObject struct {
 }
 
@@ -480,6 +553,9 @@ type StrictServerInterface interface {
 	// Delete an application
 	// (DELETE /applications/{id})
 	DeleteApplication(ctx context.Context, request DeleteApplicationRequestObject) (DeleteApplicationResponseObject, error)
+	// Update an application
+	// (PUT /applications/{id})
+	ApplyApplication(ctx context.Context, request ApplyApplicationRequestObject) (ApplyApplicationResponseObject, error)
 	// Health check
 	// (GET /health)
 	ListHealth(ctx context.Context, request ListHealthRequestObject) (ListHealthResponseObject, error)
@@ -590,6 +666,32 @@ func (sh *strictHandler) DeleteApplication(w http.ResponseWriter, r *http.Reques
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(DeleteApplicationResponseObject); ok {
 		if err := validResponse.VisitDeleteApplicationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApplyApplication operation middleware
+func (sh *strictHandler) ApplyApplication(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	var request ApplyApplicationRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApplyApplication(ctx, request.(ApplyApplicationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApplyApplication")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApplyApplicationResponseObject); ok {
+		if err := validResponse.VisitApplyApplicationResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

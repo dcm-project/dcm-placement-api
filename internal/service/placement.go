@@ -35,22 +35,13 @@ func (s *PlacementService) CreateApplication(ctx context.Context, request *serve
 	if request.Tier != nil {
 		tier = *request.Tier
 	}
-	logger.Info("Evaluating policy: ", "Tier: ", fmt.Sprintf("%d", tier))
-	result, err := s.opa.EvalTierPolicy(ctx, tier, request.Name, request.Zones)
+	logger.Info("Policy Validation")
+	zones, err := s.opaValidation(ctx, tier, request.Name, request.Zones)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Info("OPA validation result: ", "Result: ", result)
-
-	if !s.opa.IsValid(result) {
-		failures := s.opa.GetFailures(result)
-		if len(failures) > 0 {
-			return nil, fmt.Errorf("validation failed: %v", failures)
-		}
-		return nil, fmt.Errorf("input validation failed")
-	}
-
+	logger.Info("Post Policy Validation - Saving request in Database...")
 	serviceType := request.Service
 	var applicationID uuid.UUID
 	if appID != "" {
@@ -58,9 +49,7 @@ func (s *PlacementService) CreateApplication(ctx context.Context, request *serve
 	} else {
 		applicationID = uuid.New()
 	}
-
 	// Store in database post validation
-	zones := s.opa.GetRequiredZones(result)
 	appModel := model.Application{
 		ID:      applicationID,
 		Name:    request.Name,
@@ -74,24 +63,10 @@ func (s *PlacementService) CreateApplication(ctx context.Context, request *serve
 		return nil, err
 	}
 
-	// Deploy VMs
-	for _, zone := range zones {
-		logger.Info("Created service in Zone: ", "Zone: ", zone)
-		if serviceType == "webserver" {
-			vm := catalog.GetCatalogVm(request.Service)
-			err = s.deploy.DeployVM(ctx, request.Name, vm, zone, app.ID.String())
-			if err != nil {
-				return nil, err
-			}
-		}
-		// Deploy container application
-		if serviceType == "container" {
-			containerApp := catalog.GetContainerApp()
-			err = s.containerService.HandleContainerDeployment(ctx, containerApp, request.Name, zone, app.ID.String())
-			if err != nil {
-				return nil, err
-			}
-		}
+	logger.Info("Deploying Application...")
+	err = s.deployApplication(ctx, serviceType, request.Name, applicationID.String(), zones)
+	if err != nil {
+		return nil, err
 	}
 
 	appService := string(request.Service)
@@ -126,4 +101,86 @@ func (s *PlacementService) DeleteApplication(ctx context.Context, id uuid.UUID) 
 	}
 
 	return mappers.ApplicationToAPI(*app), nil
+}
+
+func (s *PlacementService) UpdateApplication(ctx context.Context, requestID string) (*server.ApplicationResponse, error) {
+	logger := zap.S().Named("placement_service:update_app")
+	logger.Info("Updating Application. ", "Application: ", requestID)
+
+	// check id exist in database
+	logger.Info("Retrieving Application from database...")
+	application, err := s.store.Application().Get(ctx, uuid.MustParse(requestID))
+	if err != nil {
+		return &server.ApplicationResponse{}, err
+	}
+
+	// OPA Validation
+	logger.Info("Policy Validation...")
+	zones := []string(application.Zones)
+	validatedZones, err := s.opaValidation(ctx, application.Tier, application.Name, &zones)
+	if err != nil {
+		return &server.ApplicationResponse{}, err
+	}
+
+	logger.Info("Deploying Application")
+	err = s.deployApplication(ctx, server.ApplicationService(application.Service), application.Name, application.ID.String(), validatedZones)
+	if err != nil {
+		return &server.ApplicationResponse{}, err
+	}
+
+	updateApplication := server.ApplicationResponse{
+		Name:    &application.Name,
+		Service: &application.Service,
+		Tier:    &application.Tier,
+		Zones:   &validatedZones,
+	}
+	logger.Info("Successfully updated application. ", "Application: ", application.ID.String())
+	return &updateApplication, nil
+}
+
+func (s *PlacementService) opaValidation(ctx context.Context, tier int, name string, zones *[]string) ([]string, error) {
+	logger := zap.S().Named("placement_service:get_app")
+
+	logger.Info("Evaluating policy: ", "Tier: ", fmt.Sprintf("%d", tier))
+	result, err := s.opa.EvalTierPolicy(ctx, tier, name, zones)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Info("OPA validation result: ", "Result: ", result)
+
+	if !s.opa.IsValid(result) {
+		failures := s.opa.GetFailures(result)
+		if len(failures) > 0 {
+			return nil, fmt.Errorf("validation failed: %v", failures)
+		}
+		return nil, fmt.Errorf("input validation failed")
+	}
+	validatedZones := s.opa.GetRequiredZones(result)
+	return validatedZones, nil
+}
+
+func (s *PlacementService) deployApplication(ctx context.Context, serviceType server.ApplicationService, appName, appID string, zones []string) error {
+	logger := zap.S().Named("placement_service:deploy_app")
+
+	for _, zone := range zones {
+		logger.Info("Created service in Zone: ", "Zone: ", zone)
+		// Deploy VMs
+		if serviceType == "webserver" {
+			vm := catalog.GetCatalogVm(serviceType)
+			err := s.deploy.DeployVM(ctx, appName, vm, zone, appID)
+			if err != nil {
+				return err
+			}
+		}
+		// Deploy container application
+		if serviceType == "container" {
+			containerApp := catalog.GetContainerApp()
+			err := s.containerService.HandleContainerDeployment(ctx, containerApp, appName, zone, appID)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
