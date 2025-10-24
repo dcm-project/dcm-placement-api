@@ -5,30 +5,23 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
-	"os"
-	"path/filepath"
 	"time"
 
 	api "github.com/dcm-project/dcm-placement-api/api/v1alpha1"
 	"github.com/dcm-project/dcm-placement-api/internal/api/server"
 	"github.com/dcm-project/dcm-placement-api/internal/config"
-	"github.com/dcm-project/dcm-placement-api/internal/deploy"
 	handlers "github.com/dcm-project/dcm-placement-api/internal/handlers/v1alpha1"
 	"github.com/dcm-project/dcm-placement-api/internal/opa"
+	"github.com/dcm-project/dcm-placement-api/internal/provider"
 	"github.com/dcm-project/dcm-placement-api/internal/service"
 	"github.com/dcm-project/dcm-placement-api/internal/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	oapimiddleware "github.com/oapi-codegen/nethttp-middleware"
-	"github.com/spf13/pflag"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"go.uber.org/zap"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-	"kubevirt.io/client-go/kubecli"
 )
 
 const (
@@ -95,14 +88,10 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	})
 
-	// Init openshift connection:
-	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(kubecli.DefaultClientConfig(&pflag.FlagSet{}))
+	// Initialize provider service client
+	providerService, err := provider.NewService(s.cfg.Service.ProviderServiceUrl)
 	if err != nil {
-		log.Fatalf("cannot obtain KubeVirt client: %v\n", err)
-	}
-	kubeClientset, err := s.getKubeClient()
-	if err != nil {
-		log.Fatalf("cannot obtain Kube client: %v\n", err)
+		return fmt.Errorf("failed to initialize provider service: %w", err)
 	}
 
 	h := handlers.NewServiceHandler(
@@ -110,8 +99,7 @@ func (s *Server) Run(ctx context.Context) error {
 		service.NewPlacementService(
 			s.store,
 			opa.NewValidator(s.cfg.Service.OpaServer),
-			deploy.NewDeployService(virtClient),
-			deploy.NewContainerService(kubeClientset),
+			providerService,
 		),
 	)
 
@@ -139,13 +127,4 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func (s *Server) getKubeClient() (*kubernetes.Clientset, error) {
-	kubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
-	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		return nil, err
-	}
-	return kubernetes.NewForConfig(restConfig)
 }

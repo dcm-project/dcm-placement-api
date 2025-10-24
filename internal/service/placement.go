@@ -6,9 +6,9 @@ import (
 
 	"github.com/dcm-project/dcm-placement-api/internal/api/server"
 	"github.com/dcm-project/dcm-placement-api/internal/catalog"
-	"github.com/dcm-project/dcm-placement-api/internal/deploy"
 	"github.com/dcm-project/dcm-placement-api/internal/handlers/v1alpha1/mappers"
 	"github.com/dcm-project/dcm-placement-api/internal/opa"
+	"github.com/dcm-project/dcm-placement-api/internal/provider"
 	"github.com/dcm-project/dcm-placement-api/internal/store"
 	"github.com/dcm-project/dcm-placement-api/internal/store/model"
 	"github.com/google/uuid"
@@ -16,15 +16,14 @@ import (
 )
 
 type PlacementService struct {
-	store            store.Store
-	opa              *opa.Validator
-	deploy           *deploy.DeployService
-	containerService *deploy.ContainerService
+	store           store.Store
+	opa             *opa.Validator
+	providerService *provider.Service
 }
 
 func NewPlacementService(store store.Store, opa *opa.Validator,
-	deploy *deploy.DeployService, containerService *deploy.ContainerService) *PlacementService {
-	return &PlacementService{store: store, opa: opa, deploy: deploy, containerService: containerService}
+	providerService *provider.Service) *PlacementService {
+	return &PlacementService{store: store, opa: opa, providerService: providerService}
 }
 
 func (s *PlacementService) CreateApplication(ctx context.Context, request *server.CreateApplicationJSONRequestBody, appID string) (*server.ApplicationResponse, error) {
@@ -62,11 +61,12 @@ func (s *PlacementService) CreateApplication(ctx context.Context, request *serve
 	// Store in database post validation
 	zones := s.opa.GetRequiredZones(result)
 	appModel := model.Application{
-		ID:      applicationID,
-		Name:    request.Name,
-		Service: string(request.Service),
-		Zones:   zones,
-		Tier:    tier,
+		ID:            applicationID,
+		Name:          request.Name,
+		Service:       string(request.Service),
+		Zones:         zones,
+		Tier:          tier,
+		DeploymentIDs: []string{},
 	}
 
 	app, err := s.store.Application().Create(ctx, appModel)
@@ -74,24 +74,48 @@ func (s *PlacementService) CreateApplication(ctx context.Context, request *serve
 		return nil, err
 	}
 
-	// Deploy VMs
+	// Deploy to provider service
+	var deploymentIDs []string
 	for _, zone := range zones {
-		logger.Info("Created service in Zone: ", "Zone: ", zone)
+		logger.Info("Creating deployment in Zone: ", "Zone: ", zone)
+		var deploymentID string
+
 		if serviceType == "webserver" {
 			vm := catalog.GetCatalogVm(request.Service)
-			err = s.deploy.DeployVM(ctx, request.Name, vm, zone, app.ID.String())
+			deploymentID, err = s.providerService.CreateVMDeployment(ctx, request.Name, zone, vm, app.ID.String())
 			if err != nil {
-				return nil, err
+				// Rollback: delete already created deployments
+				for _, id := range deploymentIDs {
+					_ = s.providerService.DeleteDeployment(ctx, id)
+				}
+				_ = s.store.Application().Delete(ctx, app.ID)
+				return nil, fmt.Errorf("failed to create VM deployment in zone %s: %w", zone, err)
 			}
-		}
-		// Deploy container application
-		if serviceType == "container" {
+		} else if serviceType == "container" {
 			containerApp := catalog.GetContainerApp()
-			err = s.containerService.HandleContainerDeployment(ctx, containerApp, request.Name, zone, app.ID.String())
+			deploymentID, err = s.providerService.CreateContainerDeployment(ctx, request.Name, zone, containerApp, app.ID.String())
 			if err != nil {
-				return nil, err
+				// Rollback: delete already created deployments
+				for _, id := range deploymentIDs {
+					_ = s.providerService.DeleteDeployment(ctx, id)
+				}
+				_ = s.store.Application().Delete(ctx, app.ID)
+				return nil, fmt.Errorf("failed to create container deployment in zone %s: %w", zone, err)
 			}
 		}
+
+		deploymentIDs = append(deploymentIDs, deploymentID)
+	}
+
+	// Update application with deployment IDs
+	app.DeploymentIDs = deploymentIDs
+	app, err = s.store.Application().Update(ctx, *app)
+	if err != nil {
+		// Rollback: delete deployments
+		for _, id := range deploymentIDs {
+			_ = s.providerService.DeleteDeployment(ctx, id)
+		}
+		return nil, fmt.Errorf("failed to update application with deployment IDs: %w", err)
 	}
 
 	appService := string(request.Service)
@@ -110,12 +134,13 @@ func (s *PlacementService) DeleteApplication(ctx context.Context, id uuid.UUID) 
 		return nil, err
 	}
 
-	// Delete VMs from zones
-	for _, zone := range app.Zones {
-		logger.Info("Removing service from Zone: ", "Zone: ", zone)
-		err = s.deploy.DeleteVM(ctx, id.String(), zone)
+	// Delete deployments from provider service
+	for _, deploymentID := range app.DeploymentIDs {
+		logger.Info("Deleting deployment: ", "DeploymentID: ", deploymentID)
+		err = s.providerService.DeleteDeployment(ctx, deploymentID)
 		if err != nil {
-			return nil, err
+			logger.Warnw("Failed to delete deployment", "deploymentID", deploymentID, "error", err)
+			// Continue deleting other deployments even if one fails
 		}
 	}
 

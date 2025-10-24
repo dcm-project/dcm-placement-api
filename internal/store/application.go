@@ -12,6 +12,7 @@ import (
 type Application interface {
 	List(ctx context.Context) (model.ApplicationList, error)
 	Create(ctx context.Context, app model.Application) (*model.Application, error)
+	Update(ctx context.Context, app model.Application) (*model.Application, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	Get(ctx context.Context, id uuid.UUID) (*model.Application, error)
 }
@@ -46,6 +47,15 @@ func (s *ApplicationStore) Delete(ctx context.Context, id uuid.UUID) error {
 
 func (s *ApplicationStore) Create(ctx context.Context, app model.Application) (*model.Application, error) {
 	result := s.db.Clauses(clause.Returning{}).Create(&app)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return &app, nil
+}
+
+func (s *ApplicationStore) Update(ctx context.Context, app model.Application) (*model.Application, error) {
+	result := s.db.Save(&app)
 	if result.Error != nil {
 		return nil, result.Error
 	}
