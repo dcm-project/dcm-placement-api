@@ -1,14 +1,23 @@
 {
     "t1": {
-        "zones": [
-            "us-east-1",
-            "us-east-2"
-        ]
+        "primary_labels": {
+            "tier": "1",
+            "type": "primary"
+        },
+        "backup_labels": {
+            "tier": "1",
+            "type": "backup"
+        }
     },
     "t2": {
-        "zones": [
-            "us-west-1",
-            "us-west-2"
-        ]
-    }
+        "primary_labels": {
+            "tier": "2",
+            "type": "primary"
+        },
+        "backup_labels": {
+            "tier": "2",
+            "type": "backup"
+        }
+    },
+    "server_url": "http://localhost:8081"
 }
