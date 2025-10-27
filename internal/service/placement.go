@@ -60,6 +60,10 @@ func (s *PlacementService) CreateApplication(ctx context.Context, request *serve
 
 	// Store in database post validation
 	zones := s.opa.GetRequiredZones(result)
+	if len(zones) == 0 {
+		return nil, fmt.Errorf("no zones found")
+	}
+	
 	appModel := model.Application{
 		ID:            applicationID,
 		Name:          request.Name,
