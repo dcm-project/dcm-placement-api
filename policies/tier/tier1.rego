@@ -35,8 +35,8 @@ fetch_zones(labels) := zone_names if {
 # Default return empty list if fetch fails
 default fetch_zones(_) := []
 
-# Debug: Check what the HTTP response looks like for primary labels
-debug_primary_response := response if {
+# Debug: Check what the HTTP response looks like for production labels
+debug_production_response := response if {
     response := http.send({
         "method": "POST",
         "url": sprintf("%s/api/v1/namespaces", [server_url]),
@@ -44,30 +44,30 @@ debug_primary_response := response if {
             "Content-Type": "application/json"
         },
         "body": {
-            "labels": data.t1.primary_labels
+            "labels": data.t1.production_labels
         }
     })
 }
 
-# Debug: Check primary zones result
-debug_primary_zones := fetch_zones(data.t1.primary_labels)
+# Debug: Check production zones result
+debug_production_zones := fetch_zones(data.t1.production_labels)
 
 # Debug: Check backup zones result
 debug_backup_zones := fetch_zones(data.t1.backup_labels)
 
-# Required zones for tier 1 - try primary labels first
+# Required zones for tier 1 - try production labels first
 required_zones := zone_names if {
-    primary_labels := data.t1.primary_labels
-    primary_zones := fetch_zones(primary_labels)
-    count(primary_zones) > 0
-    zone_names := primary_zones
+    production_labels := data.t1.production_labels
+    production_zones := fetch_zones(production_labels)
+    count(production_zones) > 0
+    zone_names := production_zones
 }
 
-# Fallback to backup labels if primary returns empty
+# Fallback to backup labels if production returns empty
 required_zones := zone_names if {
-    primary_labels := data.t1.primary_labels
-    primary_zones := fetch_zones(primary_labels)
-    count(primary_zones) == 0
+    production_labels := data.t1.production_labels
+    production_zones := fetch_zones(production_labels)
+    count(production_zones) == 0
 
     backup_labels := data.t1.backup_labels
     zone_names := fetch_zones(backup_labels)
