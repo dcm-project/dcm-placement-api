@@ -35,19 +35,19 @@ fetch_zones(labels) := zone_names if {
 # Default return empty list if fetch fails
 default fetch_zones(_) := []
 
-# Required zones for tier 2 - try primary labels first
+# Required zones for tier 2 - try production labels first
 required_zones := zone_names if {
-    primary_labels := data.t2.primary_labels
-    primary_zones := fetch_zones(primary_labels)
-    count(primary_zones) > 0
-    zone_names := primary_zones
+    production_labels := data.t2.production_labels
+    production_zones := fetch_zones(production_labels)
+    count(production_zones) > 0
+    zone_names := production_zones
 }
 
-# Fallback to backup labels if primary returns empty
+# Fallback to backup labels if production returns empty
 required_zones := zone_names if {
-    primary_labels := data.t2.primary_labels
-    primary_zones := fetch_zones(primary_labels)
-    count(primary_zones) == 0
+    production_labels := data.t2.production_labels
+    production_zones := fetch_zones(production_labels)
+    count(production_zones) == 0
 
     backup_labels := data.t2.backup_labels
     zone_names := fetch_zones(backup_labels)

@@ -1,23 +1,23 @@
 {
     "t1": {
-        "primary_labels": {
+        "production_labels": {
             "tier": "1",
-            "type": "primary"
+            "environment": "production"
         },
         "backup_labels": {
             "tier": "1",
-            "type": "backup"
+            "environment": "backup"
         }
     },
     "t2": {
-        "primary_labels": {
+        "production_labels": {
             "tier": "2",
-            "type": "primary"
+            "environment": "production"
         },
         "backup_labels": {
             "tier": "2",
-            "type": "backup"
+            "environment": "backup"
         }
     },
-    "server_url": "http://localhost:8081"
+    "server_url": "http://k8s-service-provider:8081"
 }
