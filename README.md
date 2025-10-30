@@ -26,6 +26,10 @@ VM Placement Service API for optimizing virtual machine placement across infrast
    DATABASE_HOST=placement-db
    DATABASE_MASTER_USER=admin
    DATABASE_MASTER_PASSWORD=adminpass
+
+   # Kubernetes configuration file path (used by k8s-service-provider)
+   # Default: ${HOME}/.kube/config
+   KUBECONFIG=${HOME}/.kube/config
    EOF
    make compose-up
    ```
