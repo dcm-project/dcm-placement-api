@@ -37,8 +37,7 @@ services:
       - DB_USER=${DATABASE_USER}
       - DB_PASS=${DATABASE_PASSWORD}
       - DCM_OPA_SERVER=http://policy-engine:8181
-    volumes:
-      - ${HOME}/.kube/config:/app/.kube/config:ro,z
+      - PROVIDER_SERVICE_URL=http://k8s-service-provider:8080/api/v1
     ports:
       - "8080:8080"
     networks:
@@ -47,6 +46,8 @@ services:
       placement-db:
         condition: service_healthy
       policy-engine:
+        condition: service_started
+      k8s-service-provider:
         condition: service_started
     restart: unless-stopped
 
@@ -61,11 +62,20 @@ services:
     networks:
       - placement-network
     restart: unless-stopped
+
+  k8s-service-provider:
+    container_name: k8s-service-provider
+    image: quay.io/dcm-project/k8s-service-provider:latest
+    volumes:
+      - ${KUBECONFIG}:/home/appuser/.kube/config:ro,z
+    networks:
+      - placement-network
+    restart: unless-stopped
 volumes:
   placement-db:
     driver_opts:
-      type: "tmpfs"  
-      device: "tmpfs" 
+      type: "tmpfs"
+      device: "tmpfs"
       o: "nodev,noexec"
 networks:
-  placement-network:    
+  placement-network:
