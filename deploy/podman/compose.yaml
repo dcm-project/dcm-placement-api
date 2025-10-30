@@ -53,7 +53,7 @@ services:
 
   policy-engine:
     container_name: placement-policy-engine
-    image: docker.io/openpolicyagent/opa:latest
+    image: docker.io/openpolicyagent/opa:latest-static
     command: ["run", "--server", "--addr=0.0.0.0:8181", "--bundle", "/policies"]
     volumes:
       - ../../policies:/policies:Z
