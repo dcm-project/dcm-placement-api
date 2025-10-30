@@ -38,9 +38,9 @@ func (s *Service) CreateVMDeployment(ctx context.Context, name, namespace string
 
 	vmSpec := VMSpec{
 		Vm: struct {
-			Cpu int          `json:"cpu"`
-			Os  VMSpecVmOs   `json:"os"`
-			Ram int          `json:"ram"`
+			Cpu int        `json:"cpu"`
+			Os  VMSpecVmOs `json:"os"`
+			Ram int        `json:"ram"`
 		}{
 			Ram: vm.Ram,
 			Cpu: vm.Cpu,
