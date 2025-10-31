@@ -92,7 +92,7 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 // The interface specification for the client above.
 type ClientInterface interface {
 	// ListApplications request
-	ListApplications(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListApplications(ctx context.Context, params *ListApplicationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateApplicationWithBody request with any body
 	CreateApplicationWithBody(ctx context.Context, params *CreateApplicationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -102,12 +102,12 @@ type ClientInterface interface {
 	// DeleteApplication request
 	DeleteApplication(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListHealth request
-	ListHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetHealth request
+	GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-func (c *Client) ListApplications(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListApplicationsRequest(c.Server)
+func (c *Client) ListApplications(ctx context.Context, params *ListApplicationsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListApplicationsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -154,8 +154,8 @@ func (c *Client) DeleteApplication(ctx context.Context, id openapi_types.UUID, r
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListHealthRequest(c.Server)
+func (c *Client) GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetHealthRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +167,7 @@ func (c *Client) ListHealth(ctx context.Context, reqEditors ...RequestEditorFn) 
 }
 
 // NewListApplicationsRequest generates requests for ListApplications
-func NewListApplicationsRequest(server string) (*http.Request, error) {
+func NewListApplicationsRequest(server string, params *ListApplicationsParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -183,6 +183,44 @@ func NewListApplicationsRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.MaxPageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "max_page_size", runtime.ParamLocationQuery, *params.MaxPageSize); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "page_token", runtime.ParamLocationQuery, *params.PageToken); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -289,8 +327,8 @@ func NewDeleteApplicationRequest(server string, id openapi_types.UUID) (*http.Re
 	return req, nil
 }
 
-// NewListHealthRequest generates requests for ListHealth
-func NewListHealthRequest(server string) (*http.Request, error) {
+// NewGetHealthRequest generates requests for GetHealth
+func NewGetHealthRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -360,7 +398,7 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 	// ListApplicationsWithResponse request
-	ListApplicationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListApplicationsResponse, error)
+	ListApplicationsWithResponse(ctx context.Context, params *ListApplicationsParams, reqEditors ...RequestEditorFn) (*ListApplicationsResponse, error)
 
 	// CreateApplicationWithBodyWithResponse request with any body
 	CreateApplicationWithBodyWithResponse(ctx context.Context, params *CreateApplicationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApplicationResponse, error)
@@ -370,8 +408,8 @@ type ClientWithResponsesInterface interface {
 	// DeleteApplicationWithResponse request
 	DeleteApplicationWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteApplicationResponse, error)
 
-	// ListHealthWithResponse request
-	ListHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListHealthResponse, error)
+	// GetHealthWithResponse request
+	GetHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthResponse, error)
 }
 
 type ListApplicationsResponse struct {
@@ -446,13 +484,14 @@ func (r DeleteApplicationResponse) StatusCode() int {
 	return 0
 }
 
-type ListHealthResponse struct {
+type GetHealthResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON200      *Health
 }
 
 // Status returns HTTPResponse.Status
-func (r ListHealthResponse) Status() string {
+func (r GetHealthResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -460,7 +499,7 @@ func (r ListHealthResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListHealthResponse) StatusCode() int {
+func (r GetHealthResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -468,8 +507,8 @@ func (r ListHealthResponse) StatusCode() int {
 }
 
 // ListApplicationsWithResponse request returning *ListApplicationsResponse
-func (c *ClientWithResponses) ListApplicationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListApplicationsResponse, error) {
-	rsp, err := c.ListApplications(ctx, reqEditors...)
+func (c *ClientWithResponses) ListApplicationsWithResponse(ctx context.Context, params *ListApplicationsParams, reqEditors ...RequestEditorFn) (*ListApplicationsResponse, error) {
+	rsp, err := c.ListApplications(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -502,13 +541,13 @@ func (c *ClientWithResponses) DeleteApplicationWithResponse(ctx context.Context,
 	return ParseDeleteApplicationResponse(rsp)
 }
 
-// ListHealthWithResponse request returning *ListHealthResponse
-func (c *ClientWithResponses) ListHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListHealthResponse, error) {
-	rsp, err := c.ListHealth(ctx, reqEditors...)
+// GetHealthWithResponse request returning *GetHealthResponse
+func (c *ClientWithResponses) GetHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthResponse, error) {
+	rsp, err := c.GetHealth(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListHealthResponse(rsp)
+	return ParseGetHealthResponse(rsp)
 }
 
 // ParseListApplicationsResponse parses an HTTP response from a ListApplicationsWithResponse call
@@ -631,17 +670,27 @@ func ParseDeleteApplicationResponse(rsp *http.Response) (*DeleteApplicationRespo
 	return response, nil
 }
 
-// ParseListHealthResponse parses an HTTP response from a ListHealthWithResponse call
-func ParseListHealthResponse(rsp *http.Response) (*ListHealthResponse, error) {
+// ParseGetHealthResponse parses an HTTP response from a GetHealthWithResponse call
+func ParseGetHealthResponse(rsp *http.Response) (*GetHealthResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListHealthResponse{
+	response := &GetHealthResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Health
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	}
 
 	return response, nil

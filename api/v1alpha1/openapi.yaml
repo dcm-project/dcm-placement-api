@@ -15,11 +15,15 @@ paths:
   /health:
     get:
       summary: Health check
-      operationId: ListHealth
+      operationId: GetHealth
       description: Health check for DCM Placement API
       responses:
         '200':
           description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
   /applications:
     post:
       summary: Create an application
@@ -62,6 +66,22 @@ paths:
       summary: Get all applications
       operationId: ListApplications
       description: List all DCM Applications
+      parameters:
+        - name: max_page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 100
+          description: Maximum number of items to return
+        - name: page_token
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Token for pagination
       responses:
         '200':
           description: OK
@@ -124,6 +144,11 @@ components:
         - name
         - service
       properties:
+        path:
+          type: string
+          description: Canonical path of the resource
+          example: "applications/123e4567-e89b-12d3-a456-426614174000"
+          readOnly: true
         name:
           type: string
           description: Name of the application
@@ -149,6 +174,11 @@ components:
       type: object
       x-aep-resource: true
       properties:
+        path:
+          type: string
+          description: Canonical path of the resource
+          example: "applications/123e4567-e89b-12d3-a456-426614174000"
+          readOnly: true
         id:
           type: string
           description: ID of the application
@@ -188,8 +218,14 @@ components:
     Error:
       required:
         - error
+        - type
       type: object
       properties:
+        type:
+          type: string
+          format: uri-reference
+          description: Error type
+          example: "https://example.com/errors/bad-request"
         error:
           type: string
           description: Error message
@@ -198,3 +234,20 @@ components:
           type: integer
           description: Error code
           example: 400
+
+    Health:
+      type: object
+      x-aep-resource:
+        singular: health
+        plural: healths
+        singleton: true
+      properties:
+        status:
+          type: string
+          description: Health status
+          example: "healthy"
+        path:
+          type: string
+          description: Canonical path of the resource
+          example: "health"
+          readOnly: true
