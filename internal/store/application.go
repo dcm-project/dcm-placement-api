@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"encoding/base64"
+	"strconv"
 
 	"github.com/dcm-project/dcm-placement-api/internal/store/model"
 	"github.com/google/uuid"
@@ -9,8 +11,13 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+const (
+	// defaultPageSize defines the maximum number of items that can be returned in a single page
+	defaultPageSize = 100
+)
+
 type Application interface {
-	List(ctx context.Context) (model.ApplicationList, error)
+	List(ctx context.Context, pageSize *int, pageToken *string) (model.ApplicationList, *string, error)
 	Create(ctx context.Context, app model.Application) (*model.Application, error)
 	Update(ctx context.Context, app model.Application) (*model.Application, error)
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -27,14 +34,43 @@ func NewApplication(db *gorm.DB) Application {
 	return &ApplicationStore{db: db}
 }
 
-func (s *ApplicationStore) List(ctx context.Context) (model.ApplicationList, error) {
+func (s *ApplicationStore) List(ctx context.Context, pageSize *int, pageToken *string) (model.ApplicationList, *string, error) {
 	var apps model.ApplicationList
-	tx := s.db.Model(&apps)
+
+	// Default page size
+	limit := defaultPageSize
+	if pageSize != nil {
+		limit = *pageSize
+	}
+
+	// Parse page token to get offset
+	offset := 0
+	if pageToken != nil && *pageToken != "" {
+		decoded, err := base64.StdEncoding.DecodeString(*pageToken)
+		if err == nil {
+			if parsedOffset, err := strconv.Atoi(string(decoded)); err == nil {
+				offset = parsedOffset
+			}
+		}
+	}
+
+	// Query with limit and offset
+	tx := s.db.Model(&apps).Limit(limit + 1).Offset(offset)
 	result := tx.Find(&apps)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, nil, result.Error
 	}
-	return apps, nil
+
+	// Check if there are more results
+	var nextPageToken *string
+	if len(apps) > limit {
+		apps = apps[:limit]
+		nextOffset := offset + limit
+		token := base64.StdEncoding.EncodeToString([]byte(strconv.Itoa(nextOffset)))
+		nextPageToken = &token
+	}
+
+	return apps, nextPageToken, nil
 }
 
 func (s *ApplicationStore) Delete(ctx context.Context, id uuid.UUID) error {
