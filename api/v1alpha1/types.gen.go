@@ -18,6 +18,9 @@ type Application struct {
 	// Name Name of the application
 	Name string `json:"name"`
 
+	// Path Canonical path of the resource
+	Path *string `json:"path,omitempty"`
+
 	// Service Service of the application
 	Service ApplicationService `json:"service"`
 
@@ -47,6 +50,9 @@ type ApplicationResponse struct {
 	// Name Name of the application
 	Name *string `json:"name,omitempty"`
 
+	// Path Canonical path of the resource
+	Path *string `json:"path,omitempty"`
+
 	// Service Service of the application
 	Service *string `json:"service,omitempty"`
 
@@ -64,6 +70,27 @@ type Error struct {
 
 	// Error Error message
 	Error string `json:"error"`
+
+	// Type Error type
+	Type string `json:"type"`
+}
+
+// Health defines model for Health.
+type Health struct {
+	// Path Canonical path of the resource
+	Path *string `json:"path,omitempty"`
+
+	// Status Health status
+	Status *string `json:"status,omitempty"`
+}
+
+// ListApplicationsParams defines parameters for ListApplications.
+type ListApplicationsParams struct {
+	// MaxPageSize Maximum number of items to return
+	MaxPageSize *int `form:"max_page_size,omitempty" json:"max_page_size,omitempty"`
+
+	// PageToken Token for pagination
+	PageToken *string `form:"page_token,omitempty" json:"page_token,omitempty"`
 }
 
 // CreateApplicationParams defines parameters for CreateApplication.

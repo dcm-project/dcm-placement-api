@@ -23,17 +23,24 @@ func NewServiceHandler(store store.Store, placementService *service.PlacementSer
 }
 
 // (GET /health)
-func (s *ServiceHandler) ListHealth(ctx context.Context, request server.ListHealthRequestObject) (server.ListHealthResponseObject, error) {
-	return server.ListHealth200Response{}, nil
+func (s *ServiceHandler) GetHealth(ctx context.Context, request server.GetHealthRequestObject) (server.GetHealthResponseObject, error) {
+	status := "healthy"
+	path := "/health"
+	return server.GetHealth200JSONResponse{
+		Status: &status,
+		Path:   &path,
+	}, nil
 }
 
 // (GET /applications)
 func (s *ServiceHandler) ListApplications(ctx context.Context, request server.ListApplicationsRequestObject) (server.ListApplicationsResponseObject, error) {
-	applications, err := s.store.Application().List(ctx)
+	applications, nextPageToken, err := s.store.Application().List(ctx, request.Params.MaxPageSize, request.Params.PageToken)
 	if err != nil {
 		return server.ListApplications400JSONResponse{}, nil
 	}
-	return server.ListApplications200JSONResponse(mappers.ApplicationListToAPI(applications)), nil
+	response := mappers.ApplicationListToAPI(applications)
+	response.NextPageToken = nextPageToken
+	return server.ListApplications200JSONResponse(response), nil
 }
 
 // (DELETE /applications/{id})
