@@ -26,6 +26,9 @@ type Application struct {
 	// Name Name of the application
 	Name string `json:"name"`
 
+	// Path Canonical path of the resource
+	Path *string `json:"path,omitempty"`
+
 	// Service Service of the application
 	Service ApplicationService `json:"service"`
 
@@ -55,6 +58,9 @@ type ApplicationResponse struct {
 	// Name Name of the application
 	Name *string `json:"name,omitempty"`
 
+	// Path Canonical path of the resource
+	Path *string `json:"path,omitempty"`
+
 	// Service Service of the application
 	Service *string `json:"service,omitempty"`
 
@@ -72,6 +78,27 @@ type Error struct {
 
 	// Error Error message
 	Error string `json:"error"`
+
+	// Type Error type
+	Type string `json:"type"`
+}
+
+// Health defines model for Health.
+type Health struct {
+	// Path Canonical path of the resource
+	Path *string `json:"path,omitempty"`
+
+	// Status Health status
+	Status *string `json:"status,omitempty"`
+}
+
+// ListApplicationsParams defines parameters for ListApplications.
+type ListApplicationsParams struct {
+	// MaxPageSize Maximum number of items to return
+	MaxPageSize *int `form:"max_page_size,omitempty" json:"max_page_size,omitempty"`
+
+	// PageToken Token for pagination
+	PageToken *string `form:"page_token,omitempty" json:"page_token,omitempty"`
 }
 
 // CreateApplicationParams defines parameters for CreateApplication.
@@ -87,7 +114,7 @@ type CreateApplicationJSONRequestBody = Application
 type ServerInterface interface {
 	// Get all applications
 	// (GET /applications)
-	ListApplications(w http.ResponseWriter, r *http.Request)
+	ListApplications(w http.ResponseWriter, r *http.Request, params ListApplicationsParams)
 	// Create an application
 	// (POST /applications)
 	CreateApplication(w http.ResponseWriter, r *http.Request, params CreateApplicationParams)
@@ -96,7 +123,7 @@ type ServerInterface interface {
 	DeleteApplication(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
 	// Health check
 	// (GET /health)
-	ListHealth(w http.ResponseWriter, r *http.Request)
+	GetHealth(w http.ResponseWriter, r *http.Request)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -105,7 +132,7 @@ type Unimplemented struct{}
 
 // Get all applications
 // (GET /applications)
-func (_ Unimplemented) ListApplications(w http.ResponseWriter, r *http.Request) {
+func (_ Unimplemented) ListApplications(w http.ResponseWriter, r *http.Request, params ListApplicationsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -123,7 +150,7 @@ func (_ Unimplemented) DeleteApplication(w http.ResponseWriter, r *http.Request,
 
 // Health check
 // (GET /health)
-func (_ Unimplemented) ListHealth(w http.ResponseWriter, r *http.Request) {
+func (_ Unimplemented) GetHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -140,8 +167,29 @@ type MiddlewareFunc func(http.Handler) http.Handler
 func (siw *ServerInterfaceWrapper) ListApplications(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListApplicationsParams
+
+	// ------------- Optional query parameter "max_page_size" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "max_page_size", r.URL.Query(), &params.MaxPageSize)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "max_page_size", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "page_token" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "page_token", r.URL.Query(), &params.PageToken)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_token", Err: err})
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListApplications(w, r)
+		siw.Handler.ListApplications(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -205,12 +253,12 @@ func (siw *ServerInterfaceWrapper) DeleteApplication(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
-// ListHealth operation middleware
-func (siw *ServerInterfaceWrapper) ListHealth(w http.ResponseWriter, r *http.Request) {
+// GetHealth operation middleware
+func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListHealth(w, r)
+		siw.Handler.GetHealth(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -343,13 +391,14 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Delete(options.BaseURL+"/applications/{id}", wrapper.DeleteApplication)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/health", wrapper.ListHealth)
+		r.Get(options.BaseURL+"/health", wrapper.GetHealth)
 	})
 
 	return r
 }
 
 type ListApplicationsRequestObject struct {
+	Params ListApplicationsParams
 }
 
 type ListApplicationsResponseObject interface {
@@ -454,19 +503,20 @@ func (response DeleteApplication500JSONResponse) VisitDeleteApplicationResponse(
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListHealthRequestObject struct {
+type GetHealthRequestObject struct {
 }
 
-type ListHealthResponseObject interface {
-	VisitListHealthResponse(w http.ResponseWriter) error
+type GetHealthResponseObject interface {
+	VisitGetHealthResponse(w http.ResponseWriter) error
 }
 
-type ListHealth200Response struct {
-}
+type GetHealth200JSONResponse Health
 
-func (response ListHealth200Response) VisitListHealthResponse(w http.ResponseWriter) error {
+func (response GetHealth200JSONResponse) VisitGetHealthResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
-	return nil
+
+	return json.NewEncoder(w).Encode(response)
 }
 
 // StrictServerInterface represents all server handlers.
@@ -482,7 +532,7 @@ type StrictServerInterface interface {
 	DeleteApplication(ctx context.Context, request DeleteApplicationRequestObject) (DeleteApplicationResponseObject, error)
 	// Health check
 	// (GET /health)
-	ListHealth(ctx context.Context, request ListHealthRequestObject) (ListHealthResponseObject, error)
+	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
 }
 
 type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
@@ -515,8 +565,10 @@ type strictHandler struct {
 }
 
 // ListApplications operation middleware
-func (sh *strictHandler) ListApplications(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) ListApplications(w http.ResponseWriter, r *http.Request, params ListApplicationsParams) {
 	var request ListApplicationsRequestObject
+
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.ListApplications(ctx, request.(ListApplicationsRequestObject))
@@ -597,23 +649,23 @@ func (sh *strictHandler) DeleteApplication(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-// ListHealth operation middleware
-func (sh *strictHandler) ListHealth(w http.ResponseWriter, r *http.Request) {
-	var request ListHealthRequestObject
+// GetHealth operation middleware
+func (sh *strictHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
+	var request GetHealthRequestObject
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListHealth(ctx, request.(ListHealthRequestObject))
+		return sh.ssi.GetHealth(ctx, request.(GetHealthRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListHealth")
+		handler = middleware(handler, "GetHealth")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListHealthResponseObject); ok {
-		if err := validResponse.VisitListHealthResponse(w); err != nil {
+	} else if validResponse, ok := response.(GetHealthResponseObject); ok {
+		if err := validResponse.VisitGetHealthResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

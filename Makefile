@@ -11,7 +11,7 @@ build:
 
 # Check AEP compliance
 aep:
-	spectral lint .spectral.yaml ./api/v1alpha1/openapi.yaml
+	spectral lint ./api/v1alpha1/openapi.yaml
 
 # Run the application
 run:
